@@ -1,5 +1,5 @@
 /* Hors-ligne : pages et images en cache ; cours et PDF mis en cache dès leur première ouverture. */
-const V = "bmt-v4";
+const V = "bmt-v5";
 const CORE = ["index.html", "form.html", "liens.html", "certificat.html", "dashboard.html", "style.css", "app.js", "forms.js", "config.js", "manifest.json",
   "img/logo_bmt.png", "img/logo_lueur.png", "img/basilique.jpg", "img/hkb.jpg", "img/plateau.jpg", "img/savane.jpg", "img/bassam.jpg", "img/man.jpg", "img/certificat.jpg"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
