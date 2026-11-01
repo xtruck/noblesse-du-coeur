@@ -12,7 +12,7 @@ function header(mode) {
   <div class="t"><b>${ong ? "ONG Lueur d'Espoir" : mode === "formation" ? "BMT Green Academy" : "La Noblesse du Cœur"}</b><small>${ong ? "« Aidez-nous à nous aider »" : mode === "formation" ? "Former · Inspirer · Bâtir un avenir durable" : "BMT Green Academy · ONG Lueur d'Espoir"}</small></div>
   <img src="img/logo_lueur.png" alt="ONG Lueur d'Espoir"></div></header><div class="flag"></div>`;
 }
-const FOOT = `<footer><b>RESPECT · DIGNITÉ · LEADERSHIP · PAIX</b>BMT Green Academy × ONG Lueur d'Espoir — Côte d'Ivoire<br><a href="index.html" style="color:#f1e5c3">Accueil</a> · <a href="liens.html" style="color:#f1e5c3">Tous les liens</a> · <a href="formations.html" style="color:#f1e5c3">Formations</a></footer>`;
+const FOOT = `<footer><b>RESPECT · DIGNITÉ · LEADERSHIP · PAIX</b>BMT Green Academy × ONG Lueur d'Espoir — Côte d'Ivoire<br><a href="index.html" style="color:#f1e5c3">Accueil</a> · <a href="liens.html" style="color:#f1e5c3">Tous les liens</a></footer>`;
 const DEMO = () => notConfigured() ? '<div class="warn"><b>Mode démonstration :</b> la base de données n\'est pas encore connectée. Les formulaires s\'affichent mais les réponses ne sont pas encore enregistrées.</div>' : "";
 
 /* Tous les liens, dans l'ordre du programme */
@@ -32,8 +32,7 @@ const ETAPES = [
     ["liste", "", "Liste officielle des élèves retenus"],
     ["@certificat.html", "", "Certificat Ambassadeur Junior — à imprimer"]] },
   { t: "5. ONG Lueur d'Espoir", items: [["ong", "", "Inscription des bénéficiaires de l'ONG"]] },
-  { t: "6. Formations BMT Green Academy", items: [["inscription", "", "Inscription aux formations"], ["@formations.html", "", "Bibliothèque des cours (accès par code)"]] },
-  { t: "7. Pilotage (accès réservé)", items: [["@dashboard.html", "", "Tableau de bord — résultats et statistiques"]] },
+  { t: "6. Pilotage (accès réservé)", items: [["@dashboard.html", "", "Tableau de bord — résultats et statistiques"]] },
 ];
 const href = (k, ph) => k.startsWith("@") ? k.slice(1) : `form.html?f=${k}${ph ? "&phase=" + ph : ""}`;
 
