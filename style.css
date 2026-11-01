@@ -87,3 +87,29 @@ table.tb tr:nth-child(even) td{background:#faf6ea}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--g2),var(--gold))}
 .yes{color:var(--g2);font-weight:700}
 @media (max-width:600px){.hero{height:200px}.hero h1{font-size:23px}header.top img{height:40px}header.top .t b{font-size:15px}.lk .sc label span{display:none}}
+/* liens */
+.lnk{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #f0e8d0}
+.lnk:first-child{border-top:none}
+.lnk>div{flex:1;min-width:0;font-size:14px}
+.lnk a{word-break:break-all;font-size:13px}
+.lnk .btn{padding:7px 14px;font-size:13px}
+/* tableau d'élèves */
+table.rows input,table.rows select{padding:7px 8px;border-radius:8px}
+table.rows .del{border:none;background:#fdecea;color:#c0392b;border-radius:50%;width:28px;height:28px;cursor:pointer}
+.msg{margin-top:6px}
+/* certificat */
+.cert{position:relative;max-width:980px;margin:16px auto;aspect-ratio:297/210;box-shadow:0 4px 18px rgba(0,0,0,.15)}
+.cert img{width:100%;height:100%;display:block}
+.cert .cn{position:absolute;left:23.6%;top:35.6%;width:64%;text-align:center;font:italic 700 clamp(14px,3.2vw,32px) "Playfair Display",serif;color:#14472f}
+.cert .cdt{position:absolute;left:72.7%;top:76%;font:clamp(8px,1.3vw,13px) Poppins;color:#14472f}
+@media print{@page{size:A4 landscape;margin:0}body{background:#fff}.noprint{display:none}.cert{margin:0;max-width:none;width:297mm;height:210mm;box-shadow:none}.cert .cn{font-size:24pt}.cert .cdt{font-size:10pt}}
+@media (max-width:600px){
+ table.rows tr:first-child{display:none}
+ table.rows tr{display:grid;grid-template-columns:26px 1fr 1fr 32px;gap:6px;padding:8px;border-bottom:1px solid #f0e8d0;align-items:center}
+ table.rows td{padding:0;border:none}
+ table.rows td:nth-child(2){grid-column:2/4}
+ table.rows td:nth-child(6){grid-column:4;grid-row:1}
+ table.rows td:nth-child(3){grid-column:2} table.rows td:nth-child(4){grid-column:3}
+ table.rows td:nth-child(5){grid-column:2/4}
+ table.rows input{text-align:left}
+}

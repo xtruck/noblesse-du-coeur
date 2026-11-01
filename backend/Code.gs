@@ -13,7 +13,8 @@
  * Chaque formulaire a son onglet ; l'onglet « ONG — Bénéficiaires » reçoit un numéro automatique.
  */
 var CODE_ACCES = 'NOBLESSE2026';
-var ONGLET = { eval: 'Évaluation élève', ens: 'Grille enseignant', inc: 'Registre incidents', suivi: 'Suivi individuel', rapport: 'Rapport établissement', ong: 'ONG — Bénéficiaires' };
+var ONGLET = { engagement: 'Responsables', eval: 'Évaluation élève', ens: 'Grille enseignant', inc: 'Registre incidents', suivi: 'Suivi individuel',
+  rapport: 'Rapport établissement', pv: 'PV de sélection', liste: 'Élèves retenus', ong: 'ONG — Bénéficiaires', inscription: 'Inscriptions formations' };
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -32,13 +33,24 @@ function doPost(e) {
       d = Object.assign({ numero: 'LE-' + annee + '-' + ('0000' + n).slice(-4) }, d);
       res.numero = d.numero;
     }
-    d = Object.assign({ horodatage: new Date() }, d);
-    var keys = Object.keys(d);
+    if (nom === ONGLET.inscription) {
+      var n2 = Math.max(0, sh.getLastRow() - 1) + 1;
+      d = Object.assign({ numero: 'BMT-' + new Date().getFullYear() + '-' + ('0000' + n2).slice(-4) }, d);
+      res.numero = d.numero;
+    }
+    var lignes = [d];
+    if (Array.isArray(d.eleves)) {                       // liste des retenus : une ligne par élève
+      var commun = {}; Object.keys(d).forEach(function (k) { if (k !== 'eleves') commun[k] = d[k]; });
+      lignes = d.eleves.map(function (el, i) { return Object.assign({}, commun, { rang: i + 1 }, el); });
+    }
+    var maintenant = new Date();
+    lignes = lignes.map(function (l) { return Object.assign({ horodatage: maintenant }, l); });
     var head = sh.getLastRow() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
-    keys.forEach(function (k) { if (head.indexOf(k) < 0) head.push(k); });
+    lignes.forEach(function (l) { Object.keys(l).forEach(function (k) { if (head.indexOf(k) < 0) head.push(k); }); });
     sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#14472f').setFontColor('#ffffff');
     sh.setFrozenRows(1);
-    sh.appendRow(head.map(function (k) { return d[k] === undefined ? '' : d[k]; }));
+    var vals = lignes.map(function (l) { return head.map(function (k) { return l[k] === undefined ? '' : l[k]; }); });
+    sh.getRange(sh.getLastRow() + 1, 1, vals.length, head.length).setValues(vals);
     return json_(res);
   } catch (err) {
     return json_({ ok: false, error: String(err) });
@@ -125,5 +137,9 @@ function calculer(D) {
     return Object.keys(c).map(function (k) { return [c[k][0], c[k][1], pc(c[k][1], O.length)]; }).sort(function (a, b) { return b[1] - a[1]; });
   }
   out.ong = { total: O.length, handicap: compte('handicap'), besoins: compte('besoins'), sexe: compte('sexe'), commune: compte('commune') };
+  var I = D.inscription || [];
+  O = I;                                              // réutilise compte() sur les inscriptions aux formations
+  out.autres = { responsables: (D.engagement || []).length, rapports: (D.rapport || []).length, pv: (D.pv || []).length,
+                 retenus: (D.liste || []).length, inscriptions: I.length, formations: compte('formation') };
   return out;
 }
