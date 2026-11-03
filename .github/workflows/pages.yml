@@ -19,8 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # Seuls les fichiers du site sont publiés : ni le script serveur (backend/), ni les tests, ni la configuration GitHub.
+      - name: Préparer le site
+        run: |
+          mkdir _site
+          rsync -a --exclude='.git' --exclude='.github' --exclude='backend' --exclude='tests' --exclude='_site' --exclude='README.md' ./ _site/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

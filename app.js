@@ -13,6 +13,7 @@ function header(mode) {
   <img src="img/logo_lueur.png" alt="ONG Lueur d'Espoir"></div></header><div class="tricolore"></div>`;
 }
 const FOOT = `<footer><div class="wrap"><div><b>Respect, dignité, leadership, paix</b><br>Programme d'éducation citoyenne, Côte d'Ivoire</div><div><a href="index.html">Accueil</a> &nbsp; <a href="liens.html">Tous les liens</a> &nbsp; <a href="dashboard.html">Tableau de bord</a></div></div></footer>`;
+const FOOT_ONG = `<footer><div class="wrap"><div><b>ONG Lueur d'Espoir</b><br>Aidez-nous à nous aider</div></div></footer>`;
 const DEMO = () => notConfigured() ? '<div class="warn"><b>Mode démonstration.</b> La base de données n\'est pas encore connectée : les formulaires fonctionnent, mais les réponses ne sont pas enregistrées.</div>' : "";
 
 /* Le parcours du programme : chaque étape et ses supports */
@@ -34,6 +35,8 @@ const ETAPES = [
     ["@certificat.html", "", "Certificat Ambassadeur Junior", "Saisir le nom de l'élève et imprimer son certificat."]] },
   { id: "ong", court: "ONG", t: "ONG Lueur d'Espoir", s: "Inscrire les personnes accompagnées par l'ONG.", items: [
     ["ong", "", "Inscription des bénéficiaires", "Chaque inscription ouvre un dossier avec un numéro unique."]] },
+  { id: "formations", court: "Formations", t: "Formations BMT Green Academy", s: "S'inscrire aux formations de BMT Green Academy.", items: [
+    ["inscription", "", "Inscription aux formations", "Demande d'inscription : l'équipe BMT vous recontacte."]] },
   { id: "pilotage", court: "Résultats", t: "Résultats", s: "Suivre le programme en direct.", items: [
     ["@dashboard.html", "", "Tableau de bord", "Inscrits, progrès, élèves éligibles et bénéficiaires.", true]] },
 ];
@@ -88,7 +91,7 @@ function field(c) {
   const cls = "fld" + (c.half ? " half" : "");
   switch (c.t) {
     case "section": return `<div class="fld"><div class="sect">${esc(c.l)}</div></div>`;
-    case "text": case "number": case "date": case "tel":
+    case "text": case "number": case "date": case "tel": case "email":
       return `<div class="${cls}"><label for="${c.k}">${esc(c.l)}${req}</label>${help}<input id="${c.k}" name="${c.k}" type="${c.t}" ${c.req ? "required" : ""} ${c.ph ? `placeholder="${esc(c.ph)}"` : ""} ${c.t === "number" ? 'min="0" step="any" inputmode="decimal"' : ""} ${c.list ? `list="${c.list}" autocomplete="on"` : ""}></div>`;
     case "textarea": return `<div class="${cls}"><label for="${c.k}">${esc(c.l)}${req}</label>${help}<textarea id="${c.k}" name="${c.k}" ${c.req ? "required" : ""}></textarea></div>`;
     case "select": return `<div class="${cls}"><label for="${c.k}">${esc(c.l)}${req}</label><select id="${c.k}" name="${c.k}">${c.opts.map(o => `<option>${esc(o)}</option>`).join("")}</select></div>`;
@@ -138,16 +141,18 @@ function renderForm(key) {
   document.body.innerHTML = header(f.ong ? "ong" : "") + `
   <section class="ouverture court" style="background-image:url(img/${f.img}.jpg)"><div class="wrap"><h1>${esc(titre)}</h1><p>${esc(f.desc)}</p></div></section>
   <div class="progression"><div class="wrap"><b>${esc(f.court || f.titre)}</b><span class="jauge" role="progressbar" aria-label="Avancement"><i></i></span><small id="pc">0 %</small></div></div>
-  <main class="wrap"><form class="f" novalidate>${DEMO()}
+  <main class="wrap"><form class="f" novalidate><input type="text" name="site_web" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">${DEMO()}
     ${blocs(f.champs).map(b => `<fieldset class="bloc${b.solo ? " solo" : ""}" style="border:1px solid var(--filet)"><h2>${esc(b.t)}</h2><div class="row">${b.items.map(field).join("")}</div></fieldset>`).join("")}
     <div id="err"></div>
     <div class="envoi"><div class="actions" style="margin:0"><button class="btn" type="submit">Envoyer la fiche</button>${f.ong ? "" : '<a class="btn sec" href="index.html">Retour à l\'accueil</a>'}</div>
     <p class="help" style="margin:8px 0 0">Les champs marqués <span class="req">*</span> sont obligatoires.</p></div>
-  </form><datalist id="etabs"></datalist></main>` + FOOT;
+  </form><datalist id="etabs"></datalist><datalist id="eleves"></datalist></main>` + (f.ong ? FOOT_ONG : FOOT);
   store.get("ndc_etabs", []).forEach(e => $("#etabs").insertAdjacentHTML("beforeend", `<option value="${esc(e)}">`));
   const last = store.get("ndc_last", {}); ["etab", "classe", "enseignant", "resp", "resp_prog", "chef", "ville"].forEach(k => { const el = $(`input[name=${k}]`); if (el && last[k]) el.value = last[k]; });
   if (phaseVal) { const r = $(`input[name=phase][value="${phaseVal}"]`); if (r) { r.checked = true; document.querySelectorAll("input[name=phase]").forEach(i => { if (!i.checked) i.closest("label").style.display = "none"; }); } }
   f.champs.filter(c => c.t === "rows").forEach(c => { const t = $(`[data-rows=${c.k}]`); for (let i = 0; i < 5; i++) addRow(c, t); $(`.addrow[data-k=${c.k}]`).onclick = () => addRow(c, t); });
+  const majEleves = () => { const g = store.get("ndc_eleves", {}), k = ["etab", "classe"].map(n => { const i = $(`input[name=${n}]`); return i ? i.value.trim().toLowerCase() : ""; }).join("|"); $("#eleves").innerHTML = (g[k] || []).map(n => `<option value="${esc(n)}">`).join(""); };
+  ["etab", "classe"].forEach(n => { const i = $(`input[name=${n}]`); if (i) i.addEventListener("input", majEleves); }); majEleves();
   const form = $("form");
   const maj = () => {   // avancement : champs obligatoires et lignes d'échelle remplis
     let tot = 0, ok = 0;
@@ -200,10 +205,12 @@ function collect(key, form) {
 
 async function submit(key, form) {
   const { data, miss } = collect(key, form), err = $("#err");
+  const hp = form.querySelector("[name=site_web]"); if (hp && hp.value) data.site_web = hp.value;
   if (miss.length) { err.innerHTML = `<div class="warn"><b>Il manque :</b><br>${miss.map(esc).join("<br>")}</div>`; err.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   err.innerHTML = "";
   const last = store.get("ndc_last", {}); ["etab", "classe", "enseignant", "resp", "resp_prog", "chef", "ville"].forEach(k => data[k] && (last[k] = data[k])); store.set("ndc_last", last);
   if (data.etab) { const l = new Set(store.get("ndc_etabs", [])); l.add(data.etab); store.set("ndc_etabs", [...l].slice(-30)); }
+  if (data.nom && data.etab && data.classe) { const g = store.get("ndc_eleves", {}), k = [data.etab, data.classe].map(s => s.trim().toLowerCase()).join("|"), l = new Set(g[k] || []); l.add(data.nom); g[k] = [...l].slice(-80); store.set("ndc_eleves", g); }
   const btn = form.querySelector("button[type=submit]"); btn.disabled = true; btn.textContent = "Envoi…";
   let res = { ok: true, demo: true };
   if (!notConfigured()) {
@@ -216,7 +223,7 @@ async function submit(key, form) {
     ${res.numero ? `<p style="font-size:18px">Numéro : <b>${esc(res.numero)}</b></p><p>Notez ce numéro : il identifie le dossier.</p>` : ""}
     <p>Merci ! ${["eval", "ens", "suivi"].includes(key) ? "Vous pouvez saisir l'élève suivant : l'établissement et la classe sont conservés." : ""}</p></div>
     <div class="actions"><a class="btn" href="form.html${esc(again)}">${f.ong ? "Inscrire une autre personne" : "Saisir une autre fiche"}</a>${f.ong ? "" : '<a class="btn sec" href="index.html">Retour à l\'accueil</a>'}</div>`;
-  form.insertAdjacentHTML("beforeend", "</div>"); $(".jauge i").style.width = "100%"; $("#pc").textContent = "100 %"; scrollTo({ top: 0, behavior: "smooth" });
+  $(".jauge i").style.width = "100%"; $("#pc").textContent = "100 %"; scrollTo({ top: 0, behavior: "smooth" });
 }
 
 /* ---------------- certificat ---------------- */
@@ -244,7 +251,7 @@ function renderDashboard() {
 async function load(code) {
   if (notConfigured()) { $("#err").innerHTML = '<div class="warn">La base de données n\'est pas encore connectée.</div>'; return; }
   let d;
-  try { d = await (await fetch(`${API_URL}?action=stats&code=${encodeURIComponent(code)}`)).json(); }
+  try { d = await (await fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "stats", code }) })).json(); }
   catch (e) { $("#err").innerHTML = '<div class="warn">Connexion impossible.</div>'; return; }
   if (!d.ok) { $("#err").innerHTML = `<div class="warn">${esc(d.error || "Code incorrect")}</div>`; return; }
   try { sessionStorage.setItem("ndc_code", code); } catch (e) {}
@@ -252,6 +259,7 @@ async function load(code) {
   const kpi = (v, l, s = "") => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
   const bars = rows => rows.map(r => `<tr><td>${esc(r[0])}</td><td style="width:60px;text-align:right"><b>${r[1]}</b></td><td style="width:45%"><div class="bar"><i style="width:${r[2]}%"></i></div></td><td style="width:60px">${fr(r[2])} %</td></tr>`).join("");
   const cert = e => `<a href="certificat.html?nom=${encodeURIComponent(e.nom)}" target="_blank">Certificat</a>`;
+  const dbl = (P.doublons || []).length ? `<div class="warn"><b>Noms à vérifier : doublons probables.</b> Un même élève semble écrit de deux façons, ce qui fausse les totaux.<br>${P.doublons.map(x => `${esc(x.a)} / ${esc(x.b)} (${esc(x.etab)}, ${esc(x.classe)})`).join("<br>")}</div>` : "";
   $("#dash").innerHTML = `<div class="actions" style="margin:14px 0"><span class="help" style="margin:0">Mis à jour : ${esc(d.maj)}</span><button class="btn sec" id="rf">Actualiser</button></div>
   <h2 class="sec">Participation</h2><div class="kpis">${kpi(A.responsables ?? 0, "Responsables engagés")}${kpi(P.etablissements, "Établissements")}${kpi(P.inscrits, "Élèves suivis")}${kpi(P.evalAvant, "Évaluations AVANT")}${kpi(P.evalApres, "Évaluations APRÈS")}${kpi(P.suivis, "Fiches de suivi")}${kpi(A.rapports ?? 0, "Rapports reçus")}${kpi(A.pv ?? 0, "PV de sélection")}</div>
   <h2 class="sec">Résultats</h2><div class="kpis">
@@ -264,7 +272,7 @@ async function load(code) {
     ${kpi(P.incAvant + " → " + P.incApres, "Incidents (registres)", P.incAvant ? pct(P.reductionInc) + " de baisse" : "")}
     ${kpi(P.eligibles.length, "Élèves éligibles", pct(P.pctEligibles) + " des élèves suivis")}
     ${kpi(A.retenus ?? 0, "Élèves retenus (listes officielles)")}</div>
-  <h2 class="sec">Élèves éligibles (calcul automatique)</h2><div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Critères</th><th></th></tr>${P.eligibles.map(e => `<tr><td><b>${esc(e.nom)}</b></td><td>${esc(e.etab)}</td><td>${esc(e.classe)}</td><td class="yes">${e.crit}/4</td><td>${cert(e)}</td></tr>`).join("") || '<tr><td colspan="5">Aucun pour le moment.</td></tr>'}</table></div>
+  ${dbl}<h2 class="sec">Élèves éligibles (calcul automatique)</h2><div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Critères</th><th></th></tr>${P.eligibles.map(e => `<tr><td><b>${esc(e.nom)}</b></td><td>${esc(e.etab)}</td><td>${esc(e.classe)}</td><td class="yes">${e.crit}/4</td><td>${cert(e)}</td></tr>`).join("") || '<tr><td colspan="5">Aucun pour le moment.</td></tr>'}</table></div>
   <h2 class="sec">Par établissement</h2><div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Élèves</th><th>Moy. avant</th><th>Moy. après</th><th>Éligibles</th></tr>${P.parEtab.map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td><td>${e.elig}</td></tr>`).join("")}</table></div>
   <h2 class="sec">Tous les élèves</h2><div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Avant</th><th>Après</th><th>Ens. après</th><th>Suivi fin</th><th>Incident</th><th>Critères</th></tr>${P.eleves.map(e => `<tr><td>${esc(e.nom)}</td><td>${esc(e.etab)}</td><td>${esc(e.classe)}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td><td>${n2(e.ensAp)}</td><td>${n2(e.fin)}</td><td>${e.incident == null ? "—" : e.incident ? "Oui" : "Non"}</td><td class="${e.crit >= 3 ? "yes" : ""}">${e.crit}/4</td></tr>`).join("")}</table></div>
   <h2 class="sec">ONG Lueur d'Espoir — bénéficiaires</h2><div class="kpis">${kpi(O.total, "Bénéficiaires inscrits")}</div>

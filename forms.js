@@ -7,7 +7,7 @@ const IDENT = [
   { k: "etab", t: "text", l: "Établissement", req: true, half: true, list: "etabs" },
   { k: "classe", t: "text", l: "Classe", req: true, half: true, ph: "Ex. : 3e A, 2nde C, Tle D" },
 ];
-const ELEVE = { k: "nom", t: "text", l: "Nom et prénoms de l'élève", req: true, help: "Écrire le nom exactement de la même façon sur tous les formulaires." };
+const ELEVE = { k: "nom", t: "text", l: "Nom et prénoms de l'élève", req: true, list: "eleves", help: "Écrire le nom exactement de la même façon sur tous les formulaires." };
 const PHASE = { k: "phase", t: "radio", l: "Phase", req: true, opts: ["Avant le programme", "Après le programme"] };
 
 const FORMS = {
@@ -87,9 +87,9 @@ const FORMS = {
   },
   inscription: {
     titre: "Inscription aux formations", court: "Inscription formation", img: "plateau", couleur: "#2e6b47", formation: true,
-    desc: "Inscription aux formations de BMT Green Academy. Après validation, vous recevez le code d'accès aux supports de cours.",
+    desc: "Inscription aux formations de BMT Green Academy. L'équipe BMT vous recontacte après réception de votre demande.",
     champs: [{ k: "nom", t: "text", l: "Nom et prénoms", req: true }, { k: "tel", t: "tel", l: "Téléphone (WhatsApp)", req: true, half: true },
-      { k: "email", t: "text", l: "E-mail", half: true }, { k: "ville", t: "text", l: "Ville / commune", half: true },
+      { k: "email", t: "email", l: "E-mail", half: true }, { k: "ville", t: "text", l: "Ville / commune", half: true },
       { k: "profil", t: "select", l: "Profil", half: true, opts: ["", "Élève", "Étudiant(e)", "Enseignant(e)", "Professionnel(le)", "Particulier", "Autre"] },
       { k: "formation", t: "checks", l: "Formation(s) souhaitée(s)", req: true, opts: ["Feng Shui professionnel", "La Noblesse du Cœur — formation continue", "Home Staging", "Musicothérapie", "Autre"] },
       { k: "mode", t: "radio", l: "Mode souhaité", opts: ["En présentiel (tablette au centre)", "À distance", "Les deux"] },
