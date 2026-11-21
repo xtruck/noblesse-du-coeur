@@ -1,7 +1,9 @@
 /* Hors-ligne : pages et images en cache ; PDF mis en cache à la première ouverture, puis rafraîchis en arrière-plan. */
-const V = "bmt-v7";
-const CORE = ["index.html", "form.html", "liens.html", "certificat.html", "dashboard.html", "quiz.html", "style.css", "app.js", "forms.js", "quiz.js", "quiz-data.js", "config.js", "manifest.json",
-  "img/logo_bmt.png", "img/logo_lueur.png", "img/basilique.jpg", "img/hkb.jpg", "img/plateau.jpg", "img/savane.jpg", "img/bassam.jpg", "img/man.jpg", "img/certificat.jpg"];
+const V = "bmt-v9";
+// images en WebP : bandeaux (1280 px) et versions mobiles (768 px) ; le certificat haute définition se met en cache à sa première ouverture
+const IMGS = ["basilique", "bassam", "hkb", "man", "plateau", "savane"].flatMap(n => ["img/" + n + "-1280.webp", "img/" + n + "-768.webp", "img/" + n + "-thumb.webp"]);
+const CORE = ["index.html", "form.html", "liens.html", "certificat.html", "dashboard.html", "quiz.html", "offline.html", "style.css", "ui.js", "app.js", "forms.js", "quiz.js", "quiz-data.js", "config.js", "manifest.json",
+  "img/logo_bmt-160.webp", "img/logo_lueur-160.webp", "img/icon-192.png", ...IMGS];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== V).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
@@ -13,5 +15,5 @@ self.addEventListener("fetch", e => {
     e.respondWith(caches.match(key).then(r => { const f = fetch(e.request).then(garder).catch(() => r); return r || f; }));
     return;
   }
-  e.respondWith(fetch(e.request).then(garder).catch(() => caches.match(key)));        // réseau d'abord, cache en secours
+  e.respondWith(fetch(e.request).then(garder).catch(() => caches.match(key).then(r => r || (e.request.mode === "navigate" ? caches.match("offline.html") : undefined))));   // réseau d'abord, cache en secours, puis page « hors connexion »
 });

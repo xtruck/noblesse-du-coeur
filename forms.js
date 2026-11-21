@@ -97,6 +97,9 @@ const FORMS = {
   },
   eleve_inscr: {
     titre: "Inscription de l'élève", court: "Inscription élève", img: "plateau", couleur: "#14472f", autre: "Inscrire un autre élève",
+    // liens préremplis : form.html?f=eleve_inscr&lycee=mamie&groupe=1 choisit déjà l'établissement et le groupe (l'élève peut encore les changer)
+    prefill: { lycee: ["etablissement", { mamie: "Lycée Mamie Faitai de Bingerville", gnalega: "Lycée de Garçons Gnaléga Mémé Jérémie de Bingerville" }],
+               groupe: ["groupe", { 1: "Groupe 1", 2: "Groupe 2" }] },
     desc: "Campagne de sensibilisation en milieu scolaire (Bingerville, 2026-2027). Chaque élève s'inscrit avec son nom, son prénom et sa classe.",
     champs: [
       { k: "etablissement", t: "select", l: "Établissement", req: true, opts: ["", "Lycée Mamie Faitai de Bingerville", "Lycée de Garçons Gnaléga Mémé Jérémie de Bingerville"] },
