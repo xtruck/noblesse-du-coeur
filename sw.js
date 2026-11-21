@@ -1,9 +1,9 @@
 /* Hors-ligne : pages et images en cache ; PDF mis en cache à la première ouverture, puis rafraîchis en arrière-plan. */
-const V = "bmt-v9";
+const V = "bmt-v10";
 // images en WebP : bandeaux (1280 px) et versions mobiles (768 px) ; le certificat haute définition se met en cache à sa première ouverture
 const IMGS = ["basilique", "bassam", "hkb", "man", "plateau", "savane"].flatMap(n => ["img/" + n + "-1280.webp", "img/" + n + "-768.webp", "img/" + n + "-thumb.webp"]);
 const CORE = ["index.html", "form.html", "liens.html", "certificat.html", "dashboard.html", "quiz.html", "offline.html", "style.css", "ui.js", "app.js", "forms.js", "quiz.js", "quiz-data.js", "config.js", "manifest.json",
-  "img/logo_bmt-160.webp", "img/logo_lueur-160.webp", "img/icon-192.png", ...IMGS];
+  "img/logo_bmt-160.webp", "img/logo_lueur-160.webp", "img/logo_bmt-480.webp", "img/logo_lueur-480.webp", "img/icon-duo-192.png", ...IMGS];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== V).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {

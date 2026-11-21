@@ -55,7 +55,7 @@
 
     /* révélation au défilement (fondu + légère montée, en cascade) ; anime les chiffres des tuiles quand elles apparaissent */
     revele(racineEl) {
-      const cibles = [...racineEl.querySelectorAll(".etape-tete,.liste,.bloc:not(.no-rv),.kpi,.panneau,h2.sec,.dl a,.envoi,.lnk,.puce-maj")].filter(e => !e.classList.contains("rv"));
+      const cibles = [...racineEl.querySelectorAll(".etape-tete,.liste,.bloc:not(.no-rv),.kpi,.panneau,h2.sec,.dl a,.envoi,.lnk,.puce-maj,.org,.croix,.devise")].filter(e => !e.classList.contains("rv"));
       const suivis = [...racineEl.querySelectorAll(".etape")];
       if (reduit) { UI.chiffres(racineEl); return; }
       if (!("IntersectionObserver" in window)) { cibles.concat(suivis).forEach(e => e.classList.add("vu")); UI.chiffres(racineEl); return; }

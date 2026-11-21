@@ -46,9 +46,27 @@ test('contrastes de texte (WCAG AA, 4,5:1 minimum) sur les fonds de la charte', 
 
 test('les images et logos référencés dans le code existent', () => {
   const noms = new Set();
-  for (const src of [app, quiz, forms, css]) for (const m of src.matchAll(/img\/([A-Za-z0-9_\-]+\.(?:webp|png|jpg))/g)) noms.add('img/' + m[1]);
-  assert.ok(noms.size >= 2, 'aucune image référencée trouvée : le test ne vérifie plus rien');
+  for (const src of [app, quiz, forms, css, ...PAGES.map(lire)]) for (const m of src.matchAll(/img\/([A-Za-z0-9_\-]+\.(?:webp|png|jpg))/g)) noms.add('img/' + m[1]);
+  assert.ok(noms.size >= 5, 'trop peu d\'images référencées : le test ne vérifie plus rien');
+  const manifeste = JSON.parse(lire('manifest.json'));
+  for (const i of manifeste.icons) noms.add(i.src);
   for (const f of noms) assert.ok(existe(f), 'image manquante : ' + f);
+});
+
+test('les DEUX logos (BMT Green Academy et ONG Lueur d\'Espoir) sont présents partout : en-tête, bandeau, bande dédiée, pied de page, préchargeur, icônes', () => {
+  const bloc = nom => { const m = app.match(new RegExp('(?:function ' + nom + '|const ' + nom + ' =)[\\s\\S]*?(?=\\n(?:function|const|/\\*)\\s)')); assert.ok(m, nom + ' introuvable'); return m[0]; };
+  for (const [nom, src] of [['header', bloc('header')], ['DUO', bloc('DUO')], ['PARTENAIRES', bloc('PARTENAIRES')], ['FOOT', bloc('FOOT')]]) {
+    assert.ok(/logo_bmt-(160|480)\.webp/.test(src), nom + ' : logo BMT absent');
+    assert.ok(/logo_lueur-(160|480)\.webp/.test(src), nom + ' : logo Lueur d\'Espoir absent');
+  }
+  assert.ok(/\$\{DUO\}/.test(app), 'BANDEAU n\'affiche pas le double médaillon');
+  assert.ok(/PARTENAIRES/.test(app.match(/function renderHome[\s\S]*?UIok\(\)/)[0]), 'la bande des deux organisations manque sur l\'accueil');
+  for (const p of PAGES.filter(p => !['404.html', 'offline.html'].includes(p))) {
+    const h = lire(p); assert.ok(h.includes('logo_bmt-160') && h.includes('logo_lueur-160'), p + ' : préchargeur sans les deux logos');
+  }
+  for (const p of PAGES) assert.ok(lire(p).includes('icon-duo-192.png'), p + ' : icône à deux logos manquante');
+  const icones = JSON.parse(lire('manifest.json')).icons.map(i => i.src);
+  assert.ok(icones.every(s => s.includes('icon-duo')), 'le manifeste utilise encore une icône à un seul logo');
 });
 
 test('chaque bandeau a ses deux versions (1280 px et mobile 768 px) et chaque vignette existe', () => {
@@ -91,6 +109,17 @@ test('toutes les pages du parcours sont atteignables : les liens du menu et du p
   for (const m of app.matchAll(/"@([a-z0-9_\-]+\.html)"/g)) cibles.add(m[1]);
   assert.ok(cibles.size >= 5);
   for (const f of cibles) assert.ok(existe(f), 'page manquante : ' + f);
+});
+
+test('les marques *mot* des titres d\'étapes ne fuient jamais dans les libellés courts (frise) ni ailleurs', () => {
+  const etapes = vm.runInNewContext(app.match(/const ETAPES = \[[\s\S]*?\n\];/)[0] + ';ETAPES');
+  assert.ok(etapes.length >= 8);
+  for (const e of etapes) {
+    assert.ok(!/\*/.test(e.court), `libellé court de « ${e.id} » contient une astérisque : ${e.court}`);
+    assert.ok(!/\*/.test(e.s), `sous-titre de « ${e.id} » contient une astérisque`);
+    assert.ok((e.t.match(/\*/g) || []).length % 2 === 0, `titre de « ${e.id} » : astérisques non appariées`);
+    for (const it of e.items) assert.ok(!/\*/.test(it[2] + it[3]), `un élément de « ${e.id} » contient une astérisque`);
+  }
 });
 
 test('accessibilité : mouvement réduit respecté, focus visible, lien d\'évitement, cibles tactiles d\'au moins 44 px', () => {

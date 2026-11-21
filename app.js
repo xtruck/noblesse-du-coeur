@@ -21,19 +21,30 @@ function header(mode) {
   const saut = `<a class="saut" href="#contenu">Aller au contenu</a>`;
   if (mode === "ong")   // page publique de l'ONG : en-tête minimal, sans navigation vers le reste du site
     return `${saut}<header class="ident"><div class="wrap"><div class="logo"><span class="nom"><b>ONG <em>Lueur</em> d'Espoir</b><span>Aidez-nous à nous aider</span></span></div>
-    <img src="img/logo_lueur-160.webp" width="46" height="46" alt="ONG Lueur d'Espoir"></div></header><div class="tricolore"></div>`;
+    <img src="img/logo_lueur-160.webp" width="64" height="64" alt="ONG Lueur d'Espoir"></div></header><div class="tricolore"></div>`;
   return `${saut}<header class="ident"><div class="wrap">
-    <a class="logo" href="index.html" aria-label="La Noblesse du Cœur, accueil"><img src="img/logo_bmt-160.webp" width="49" height="48" alt=""><span class="nom"><b>La Noblesse du <em>Cœur</em></b><span>BMT Green Academy et ONG Lueur d'Espoir</span></span></a>
+    <a class="logo" href="index.html" aria-label="La Noblesse du Cœur, accueil"><span class="paire-logos"><img src="img/logo_bmt-160.webp" width="65" height="62" alt=""><i class="trait-or"></i><img src="img/logo_lueur-160.webp" width="62" height="62" alt=""></span><span class="nom"><b>La Noblesse du <em>Cœur</em></b><span>BMT Green Academy et ONG Lueur d'Espoir</span></span></a>
     <nav class="nav" aria-label="Navigation principale">${NAV.map(lienNav).join("")}<a class="btn" href="${CTA_NAV[0]}">${CTA_NAV[1]}</a></nav>
     <button class="burger" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="tiroir"><span></span><span></span></button></div></header>
   <div class="voile"></div>
-  <nav class="tiroir" id="tiroir" aria-label="Menu" aria-hidden="true"><div class="t-tete"><img src="img/logo_bmt-160.webp" width="45" height="44" alt=""><img src="img/logo_lueur-160.webp" width="44" height="44" alt=""></div>
+  <nav class="tiroir" id="tiroir" aria-label="Menu" aria-hidden="true"><div class="t-tete"><img src="img/logo_bmt-160.webp" width="67" height="64" alt="BMT Green Academy"><img src="img/logo_lueur-160.webp" width="64" height="64" alt="ONG Lueur d'Espoir"></div>
     ${NAV.map(lienNav).join("")}<a class="btn" href="${CTA_NAV[0]}">${CTA_NAV[1]}</a><p class="t-bas">BMT Green Academy · ONG Lueur d'Espoir</p></nav><div class="tricolore"></div>`;
 }
-/* bandeau d'ouverture : image en WebP (≈70 Ko, 30 Ko sur mobile au lieu de 250 Ko), animée par ui.js ; médaillon du logo sur grand écran */
-const BANDEAU = (img, contenu, court) => `<section class="ouverture${court ? " court" : ""}" style="--img:url(img/${img}-1280.webp);--img-m:url(img/${img}-768.webp)"><div class="fond"></div>${court ? "" : '<img class="badge" src="img/logo_bmt-160.webp" width="160" height="156" alt="">'}<div class="wrap"><div class="corps">${contenu}</div></div></section>`;
+/* les deux logos en très grand, présentés tels quels, sans fond (bandeau d'ouverture) */
+const DUO = `<div class="duo" aria-hidden="true"><img src="img/logo_bmt-480.webp" width="502" height="480" alt=""><img src="img/logo_lueur-480.webp" width="480" height="480" alt=""></div>`;
+/* bandeau d'ouverture : image en WebP (≈70 Ko, 30 Ko sur mobile au lieu de 250 Ko), animée par ui.js, avec le double médaillon */
+const BANDEAU = (img, contenu, court) => `<section class="ouverture${court ? " court" : ""}" style="--img:url(img/${img}-1280.webp);--img-m:url(img/${img}-768.webp)"><div class="fond"></div><div class="wrap">${DUO}<div class="corps">${contenu}</div></div></section>`;
+/* bande des deux organisations : les logos en très grand, avec leur nom */
+const PARTENAIRES = `<section class="bande partenaires" aria-labelledby="deux-orgs"><div class="wrap">
+  <p class="eyebrow" id="deux-orgs">Un programme porté par deux organisations</p>
+  <div class="paire">
+    <figure class="org"><img class="logo-xl" src="img/logo_bmt-480.webp" width="502" height="480" alt="Logo de BMT Green Academy" loading="lazy"><figcaption><b>BMT Green <em>Academy</em></b><span>École Internationale des Arts Thérapeutiques, du Leadership Social et des Métiers Verts</span></figcaption></figure>
+    <span class="croix" aria-hidden="true">×</span>
+    <figure class="org"><img class="logo-xl" src="img/logo_lueur-480.webp" width="480" height="480" alt="Logo de l'ONG Lueur d'Espoir" loading="lazy"><figcaption><b>ONG Lueur d'<em>Espoir</em></b><span>Aidez-nous à nous aider</span></figcaption></figure>
+  </div>
+  <p class="devise">Respect, dignité, leadership, paix.</p></div></section>`;
 const FOOT = `<footer><div class="wrap">
-  <div class="a-propos-pied"><img src="img/logo_bmt-160.webp" width="44" height="43" alt="BMT Green Academy"><img src="img/logo_lueur-160.webp" width="44" height="44" alt="ONG Lueur d'Espoir"><b>La Noblesse du <em>Cœur</em></b>Respect, dignité, leadership, paix.<br>Programme d'éducation citoyenne, Côte d'Ivoire.</div>
+  <div class="a-propos-pied"><div class="ronds"><img src="img/logo_bmt-160.webp" width="167" height="160" alt="BMT Green Academy" loading="lazy"><img src="img/logo_lueur-160.webp" width="160" height="160" alt="ONG Lueur d'Espoir" loading="lazy"></div><b>La Noblesse du <em>Cœur</em></b>Respect, dignité, leadership, paix.<br>Programme d'éducation citoyenne, Côte d'Ivoire.</div>
   <div><h4>Les élèves</h4><a href="form.html?f=eleve_inscr">Inscription des élèves</a><a href="quiz.html">Quiz d'entraînement</a><a href="index.html#pdf">Fiches à imprimer</a></div>
   <div><h4>L'équipe</h4><a href="index.html">Parcours du programme</a><a href="liens.html">Tous les liens</a><a href="dashboard.html">Tableau de bord</a></div>
   <p class="partenaire">En partenariat avec l'Association des Arts-Thérapeutes, Coachs et Praticiens Holistiques de Côte d'Ivoire.</p></div></footer>`;
@@ -71,7 +82,7 @@ const ETAPES = [
     ["@quiz.html", "", "Quiz d'entraînement", "Questions à choix avec correction immédiate, sur téléphone."]] },
   { id: "formations", court: "Formations", t: "Formations BMT Green *Academy*", s: "S'inscrire aux formations de BMT Green Academy.", items: [
     ["inscription", "", "Inscription aux formations", "Demande d'inscription : l'équipe BMT vous recontacte."]] },
-  { id: "pilotage", court: "*Résultats*", t: "*Résultats*", s: "Suivre le programme en direct.", items: [
+  { id: "pilotage", court: "Résultats", t: "*Résultats*", s: "Suivre le programme en direct.", items: [
     ["@dashboard.html", "", "Tableau de bord", "Inscrits, progrès, élèves éligibles et bénéficiaires.", true]] },
 ];
 const href = (k, ph) => k.startsWith("@") ? k.slice(1) : `form.html?f=${k}${ph ? "&" + (ph.includes("=") ? ph : "phase=" + ph) : ""}`;   // ph = "avant" / "apres", ou un paramètre complet (ex. « lycee=mamie&groupe=1 »)
@@ -84,7 +95,7 @@ function renderHome() {
     <span class="eyebrow" style="--k:0">Programme 2026-2027 · Bingerville</span>
     <h1>La Noblesse du <em>Cœur</em></h1>
     <p class="lead" style="--k:1">Saisissez ici les fiches du programme, étape par étape. Chaque formulaire se remplit en une à trois minutes, à partir de la fiche papier.</p>
-    <div class="cta" style="--k:2"><a class="btn or" href="#avant">Commencer le parcours</a><a class="btn clair" href="quiz.html">Quiz des élèves</a></div>`) + `
+    <div class="cta" style="--k:2"><a class="btn or" href="#avant">Commencer le parcours</a><a class="btn clair" href="quiz.html">Quiz des élèves</a></div>`) + PARTENAIRES + `
   <nav class="frise" aria-label="Étapes du programme"><ol>${ETAPES.map((e, i) => `<li><a href="#${e.id}"><i>${i + 1}</i>${e.court}</a></li>`).join("")}<span class="trait" aria-hidden="true"></span></ol></nav>
   <main id="contenu" tabindex="-1">${DEMO() ? `<div class="wrap">${DEMO()}</div>` : ""}
     ${ETAPES.map((e, i) => `<section class="etape bande${i % 2 ? " sable" : ""}${e.id === "quiz" ? " sombre" : ""}" id="${e.id}"><div class="wrap"><div class="etape-tete"><span class="num">${i + 1}</span><div><h2>${titreHtml(e.t)}</h2><p>${esc(e.s)}</p></div></div>
