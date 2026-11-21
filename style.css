@@ -193,3 +193,23 @@ table.tb tr:last-child td{border-bottom:none}
 fieldset.bloc{margin:0 0 16px;min-width:0}
 .bloc.solo .fld>.lb{display:none}
 .bloc.solo .fld{margin-bottom:14px}
+
+/* ---------- Quiz d'entraînement : bonne réponse en vert, réponse à revoir en or (jamais de rouge) ---------- */
+.qopts{display:grid;gap:10px;margin:6px 0 14px}
+.qopt{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 12px;width:100%;text-align:left;border:1.5px solid #cfcbbf;border-radius:10px;background:#fff;padding:12px 14px;font:500 16px/1.4 var(--sans);color:var(--encre);cursor:pointer;min-height:52px}
+.qopt>b{flex:none;width:28px;height:28px;border-radius:50%;background:var(--vert-pale);color:var(--vert);display:grid;place-items:center;font-size:14px}
+.qopt>span{flex:1}
+.qopt:hover:not(:disabled){border-color:var(--vert2)}
+.qopt:disabled{cursor:default}
+.qopt.bon{border-color:var(--vert2);background:var(--vert-pale)}
+.qopt.bon>b{background:var(--vert);color:#fff}
+.qopt.faux{border-color:var(--or);background:var(--or-pale)}
+.qopt.faux>b{background:var(--or);color:#fff}
+.qopt .tag{flex:0 0 100%;margin-left:40px;font:600 12px var(--sans);font-style:normal;color:var(--vert)}
+.qopt.faux .tag{color:#6b5214}
+.qfb{padding:14px 16px;border-radius:10px;margin-bottom:12px}
+.qfb h3{font-size:18px;margin-bottom:4px}
+.qfb small{display:block;margin-top:6px;color:var(--gris)}
+.rev{border-top:1px solid var(--filet);padding:12px 0}
+.rev p{margin:4px 0}
+.rev small{color:var(--gris)}

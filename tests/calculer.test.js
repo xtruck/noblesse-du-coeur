@@ -10,7 +10,7 @@ vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'backend', 'Code.gs')
 
 const base = { etab: 'Lycée A', classe: '3e A' };
 const ev = (nom, phase, q) => Object.assign({ nom, phase }, base, Object.fromEntries(q.map((v, i) => ['q' + (i + 1), v])));
-const vide = () => ({ eval: [], ens: [], suivi: [], inc: [], ong: [], inscription: [], engagement: [], rapport: [], pv: [], liste: [] });
+const vide = () => ({ eval: [], ens: [], suivi: [], inc: [], ong: [], inscription: [], engagement: [], rapport: [], pv: [], liste: [], eleve_inscr: [] });
 const calc = D => JSON.parse(JSON.stringify(ctx.calculer(D)));   // copie simple : évite les différences entre contextes
 
 test('sans aucune donnée, rien ne plante', () => {
@@ -66,6 +66,22 @@ test('deux noms presque identiques dans la même classe sont signalés comme dou
   const p = calc(D).programme;
   assert.strictEqual(p.inscrits, 3);
   assert.strictEqual(p.doublons.length, 1);
+});
+
+test("la clé anti-doublon d'un élève ignore accents, casse et espaces, mais pas le groupe de classe", () => {
+  const a = { etablissement: 'Lycée Mamie Faitai de Bingerville', nom: 'KONÉ', prenom: 'Awa  Marie', classe: '3ème 2', groupe: 'Groupe 1' };
+  const b = { etablissement: 'lycee mamie faitai de bingerville', nom: 'Kone', prenom: 'awa marie', classe: '3ème  2', groupe: 'Groupe 2' };
+  assert.strictEqual(ctx.cleEleve_(a), ctx.cleEleve_(b));
+  assert.notStrictEqual(ctx.cleEleve_(a), ctx.cleEleve_(Object.assign({}, a, { classe: '3ème 3' })));
+});
+
+test('les élèves inscrits à la campagne sont comptés par lycée et par groupe', () => {
+  const D = vide();
+  const L = 'Lycée Mamie Faitai de Bingerville';
+  D.eleve_inscr = [{ etablissement: L, groupe: 'Groupe 1' }, { etablissement: L, groupe: 'Groupe 1' }, { etablissement: L, groupe: 'Groupe 2' }];
+  const o = calc(D).inscritsEleves;
+  assert.strictEqual(o.total, 3);
+  assert.deepStrictEqual(o.parGroupe, [{ etab: L, groupe: 'Groupe 1', n: 2 }, { etab: L, groupe: 'Groupe 2', n: 1 }]);
 });
 
 test('les choix multiples de l\'ONG sont comptés séparément, du plus fréquent au moins fréquent', () => {

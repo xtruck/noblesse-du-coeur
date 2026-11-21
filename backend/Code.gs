@@ -16,10 +16,16 @@
  * Chaque formulaire a son onglet ; l'onglet « ONG — Bénéficiaires » reçoit un numéro automatique.
  */
 var ONGLET = { engagement: 'Responsables', eval: 'Évaluation élève', ens: 'Grille enseignant', inc: 'Registre incidents', suivi: 'Suivi individuel',
-  rapport: 'Rapport établissement', pv: 'PV de sélection', liste: 'Élèves retenus', ong: 'ONG — Bénéficiaires', inscription: 'Inscriptions formations' };
+  rapport: 'Rapport établissement', pv: 'PV de sélection', liste: 'Élèves retenus', ong: 'ONG — Bénéficiaires', inscription: 'Inscriptions formations', eleve_inscr: 'Inscriptions élèves' };
 
 /* Limites contre les envois abusifs (le site est public) */
 var MAX_OCTETS = 200000, MAX_TEXTE = 2000, MAX_LIGNES = 200, MAX_COLONNES = 60;
+/* Tableau de bord : après ESSAIS_MAX codes faux, plus aucun essai pendant BLOCAGE_SEC secondes (pour tout le monde) */
+var ESSAIS_MAX = 10, BLOCAGE_SEC = 900;
+
+/* Texte comparable : minuscules, sans accents, espaces simples. Sert à repérer qu'un élève est déjà inscrit. */
+function normCle_(s) { return String(s === undefined || s === null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); }
+function cleEleve_(d) { return [d.etablissement, d.nom, d.prenom, d.classe].map(normCle_).join('|'); }
 
 function codeAcces_() { return PropertiesService.getScriptProperties().getProperty('CODE_ACCES') || ''; }
 
@@ -35,7 +41,7 @@ function doPost(e) {
   if (d.site_web) return json_({ ok: true });             // champ piège caché : seuls les robots le remplissent
 
   var lock = LockService.getScriptLock();
-  lock.waitLock(20000);
+  if (!lock.tryLock(25000)) return json_({ ok: false, error: 'Le serveur est très sollicité. Réessayez dans un instant.' });
   try {
     var nom = Object.prototype.hasOwnProperty.call(ONGLET, d.form) ? ONGLET[d.form] : null;
     if (!nom) return json_({ ok: false, error: 'Formulaire inconnu' });
@@ -55,6 +61,20 @@ function doPost(e) {
       d = Object.assign({ numero: 'BMT-' + new Date().getFullYear() + '-' + ('0000' + n2).slice(-4) }, d);
       res.numero = d.numero;
     }
+    if (nom === ONGLET.eleve_inscr) {
+      /* Anti-doublon : même établissement + nom + prénoms + classe (sans accents ni majuscules).
+         La clé est stockée dans une colonne « cle » et cherchée avec TextFinder : pas de relecture de toute la feuille sous le verrou. */
+      d.cle = cleEleve_(d);
+      var colCle = sh.getLastRow() > 1 ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].indexOf('cle') + 1 : 0;
+      if (colCle > 0) {
+        var trouve = sh.getRange(2, colCle, sh.getLastRow() - 1, 1).createTextFinder(d.cle).matchEntireCell(true).matchCase(true).findNext();
+        if (trouve) {
+          var colGr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].indexOf('groupe') + 1;
+          if (colGr > 0 && d.groupe) sh.getRange(trouve.getRow(), colGr).setValue(d.groupe);   // un groupe corrigé met à jour la ligne existante
+          return json_(res);                                                                    // déjà inscrit : succès silencieux, pas de doublon
+        }
+      }
+    }
     var lignes = [d];
     if (Array.isArray(d.eleves)) {                       // liste des retenus : une ligne par élève
       var commun = {}; Object.keys(d).forEach(function (k) { if (k !== 'eleves') commun[k] = d[k]; });
@@ -63,21 +83,25 @@ function doPost(e) {
     var maintenant = new Date();
     lignes = lignes.map(function (l) { return Object.assign({ horodatage: maintenant }, l); });
     var head = sh.getLastRow() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
+    var nbCol = head.length;
     lignes.forEach(function (l) { Object.keys(l).forEach(function (k) { if (head.indexOf(k) < 0) head.push(k); }); });
-    sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#14472f').setFontColor('#ffffff');
-    sh.setFrozenRows(1);
+    if (head.length !== nbCol || nbCol === 0) {          // l'en-tête n'est réécrit que s'il change (envois plus rapides sous le verrou)
+      sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#14472f').setFontColor('#ffffff');
+      sh.setFrozenRows(1);
+    }
     var vals = lignes.map(function (l) { return head.map(function (k) { return l[k] === undefined ? '' : l[k]; }); });
     var plage = sh.getRange(sh.getLastRow() + 1, 1, vals.length, head.length);
     vals.forEach(function (ligne, i) {
       ligne.forEach(function (v, j) {
         // une saisie qui commence par = + - @ reste du texte brut : elle n'est jamais exécutée comme une formule
-        if (typeof v === 'string' && /^[=+\-@]/.test(v)) plage.getCell(i + 1, j + 1).setNumberFormat('@');
+        if (typeof v === 'string' && /^[=+\-@\t\r]/.test(v)) plage.getCell(i + 1, j + 1).setNumberFormat('@');
       });
     });
     plage.setValues(vals);
     return json_(res);
   } catch (err) {
-    return json_({ ok: false, error: String(err) });
+    console.error(err);                                   // le détail reste dans les journaux Apps Script, pas chez le visiteur
+    return json_({ ok: false, error: 'Enregistrement impossible. Réessayez dans un instant.' });
   } finally { lock.releaseLock(); }
 }
 
@@ -96,11 +120,14 @@ function propre_(o) {
 }
 
 function stats_(code) {
-  var attendu = codeAcces_();
+  var attendu = codeAcces_(), cache = CacheService.getScriptCache(), essais = Number(cache.get('essais_code') || 0);
+  if (essais >= ESSAIS_MAX) return json_({ ok: false, error: 'Trop d\'essais. Réessayez dans 15 minutes.' });   // bloque aussi les essais lancés en parallèle
   if (!attendu || String(code || '') !== attendu) {
-    Utilities.sleep(1000);                                // ralentit les essais au hasard
+    cache.put('essais_code', String(essais + 1), BLOCAGE_SEC);
+    Utilities.sleep(1000);
     return json_({ ok: false, error: attendu ? 'Code d\'accès incorrect' : 'Code d\'accès non configuré (Propriétés du script)' });
   }
+  cache.remove('essais_code');
   var ss = SpreadsheetApp.getActiveSpreadsheet(), data = {};
   Object.keys(ONGLET).forEach(function (k) { data[k] = lignes_(ss.getSheetByName(ONGLET[k])); });
   var s = calculer(data);
@@ -204,5 +231,8 @@ function calculer(D) {
   out.ong = { total: O.length, handicap: compte(O, 'handicap'), besoins: compte(O, 'besoins'), sexe: compte(O, 'sexe'), commune: compte(O, 'commune') };
   out.autres = { responsables: (D.engagement || []).length, rapports: (D.rapport || []).length, pv: (D.pv || []).length,
                  retenus: (D.liste || []).length, inscriptions: I.length, formations: compte(I, 'formation') };
+  var EI = D.eleve_inscr || [], g = {};                 // campagne de sensibilisation : élèves inscrits par lycée et par groupe
+  EI.forEach(function (r) { var k = String(r.etablissement || '') + '||' + String(r.groupe || ''); g[k] = (g[k] || 0) + 1; });
+  out.inscritsEleves = { total: EI.length, parGroupe: Object.keys(g).sort().map(function (k) { var p = k.split('||'); return { etab: p[0], groupe: p[1], n: g[k] }; }) };
   return out;
 }

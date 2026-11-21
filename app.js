@@ -35,6 +35,10 @@ const ETAPES = [
     ["@certificat.html", "", "Certificat Ambassadeur Junior", "Saisir le nom de l'élève et imprimer son certificat."]] },
   { id: "ong", court: "ONG", t: "ONG Lueur d'Espoir", s: "Inscrire les personnes accompagnées par l'ONG.", items: [
     ["ong", "", "Inscription des bénéficiaires", "Chaque inscription ouvre un dossier avec un numéro unique."]] },
+  { id: "eleves", court: "Élèves", t: "Inscription des élèves", s: "Campagne de sensibilisation en milieu scolaire : un lien pour tous les élèves.", items: [
+    ["eleve_inscr", "", "Inscription de l'élève", "Nom, prénoms, classe, établissement et groupe."]] },
+  { id: "quiz", court: "Quiz", t: "Quiz d'entraînement", s: "Pour les élèves : réviser les modules de l'Axe 1 et de l'Axe 2.", items: [
+    ["@quiz.html", "", "Quiz d'entraînement", "Questions à choix avec correction immédiate, sur téléphone."]] },
   { id: "formations", court: "Formations", t: "Formations BMT Green Academy", s: "S'inscrire aux formations de BMT Green Academy.", items: [
     ["inscription", "", "Inscription aux formations", "Demande d'inscription : l'équipe BMT vous recontacte."]] },
   { id: "pilotage", court: "Résultats", t: "Résultats", s: "Suivre le programme en direct.", items: [
@@ -222,7 +226,7 @@ async function submit(key, form) {
   form.innerHTML = `<div class="bloc" style="padding-bottom:14px"><div class="ok"><h3>${res.demo ? "Fiche complète (mode démonstration, non enregistrée)" : "Fiche enregistrée"}</h3>
     ${res.numero ? `<p style="font-size:18px">Numéro : <b>${esc(res.numero)}</b></p><p>Notez ce numéro : il identifie le dossier.</p>` : ""}
     <p>Merci ! ${["eval", "ens", "suivi"].includes(key) ? "Vous pouvez saisir l'élève suivant : l'établissement et la classe sont conservés." : ""}</p></div>
-    <div class="actions"><a class="btn" href="form.html${esc(again)}">${f.ong ? "Inscrire une autre personne" : "Saisir une autre fiche"}</a>${f.ong ? "" : '<a class="btn sec" href="index.html">Retour à l\'accueil</a>'}</div>`;
+    <div class="actions"><a class="btn" href="form.html${esc(again)}">${f.ong ? "Inscrire une autre personne" : f.autre || "Saisir une autre fiche"}</a>${f.ong ? "" : '<a class="btn sec" href="index.html">Retour à l\'accueil</a>'}</div>`;
   $(".jauge i").style.width = "100%"; $("#pc").textContent = "100 %"; scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -255,7 +259,7 @@ async function load(code) {
   catch (e) { $("#err").innerHTML = '<div class="warn">Connexion impossible.</div>'; return; }
   if (!d.ok) { $("#err").innerHTML = `<div class="warn">${esc(d.error || "Code incorrect")}</div>`; return; }
   try { sessionStorage.setItem("ndc_code", code); } catch (e) {}
-  const fr = x => String(x).replace(".", ","), P = d.programme, O = d.ong, A = d.autres || {}, pct = x => x == null ? "—" : fr(x) + " %", n2 = x => x == null ? "—" : fr(x);
+  const fr = x => String(x).replace(".", ","), P = d.programme, O = d.ong, A = d.autres || {}, I = d.inscritsEleves || { total: 0, parGroupe: [] }, pct = x => x == null ? "—" : fr(x) + " %", n2 = x => x == null ? "—" : fr(x);
   const kpi = (v, l, s = "") => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
   const bars = rows => rows.map(r => `<tr><td>${esc(r[0])}</td><td style="width:60px;text-align:right"><b>${r[1]}</b></td><td style="width:45%"><div class="bar"><i style="width:${r[2]}%"></i></div></td><td style="width:60px">${fr(r[2])} %</td></tr>`).join("");
   const cert = e => `<a href="certificat.html?nom=${encodeURIComponent(e.nom)}" target="_blank">Certificat</a>`;
@@ -275,6 +279,8 @@ async function load(code) {
   ${dbl}<h2 class="sec">Élèves éligibles (calcul automatique)</h2><div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Critères</th><th></th></tr>${P.eligibles.map(e => `<tr><td><b>${esc(e.nom)}</b></td><td>${esc(e.etab)}</td><td>${esc(e.classe)}</td><td class="yes">${e.crit}/4</td><td>${cert(e)}</td></tr>`).join("") || '<tr><td colspan="5">Aucun pour le moment.</td></tr>'}</table></div>
   <h2 class="sec">Par établissement</h2><div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Élèves</th><th>Moy. avant</th><th>Moy. après</th><th>Éligibles</th></tr>${P.parEtab.map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td><td>${e.elig}</td></tr>`).join("")}</table></div>
   <h2 class="sec">Tous les élèves</h2><div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Avant</th><th>Après</th><th>Ens. après</th><th>Suivi fin</th><th>Incident</th><th>Critères</th></tr>${P.eleves.map(e => `<tr><td>${esc(e.nom)}</td><td>${esc(e.etab)}</td><td>${esc(e.classe)}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td><td>${n2(e.ensAp)}</td><td>${n2(e.fin)}</td><td>${e.incident == null ? "—" : e.incident ? "Oui" : "Non"}</td><td class="${e.crit >= 3 ? "yes" : ""}">${e.crit}/4</td></tr>`).join("")}</table></div>
+  <h2 class="sec">Campagne en milieu scolaire — inscriptions des élèves</h2><div class="kpis">${kpi(I.total, "Élèves inscrits")}</div>
+  <div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Groupe</th><th>Inscrits</th></tr>${I.parGroupe.map(x => `<tr><td>${esc(x.etab)}</td><td>${esc(x.groupe)}</td><td><b>${x.n}</b></td></tr>`).join("") || '<tr><td colspan="3">Aucune inscription pour le moment.</td></tr>'}</table></div>
   <h2 class="sec">ONG Lueur d'Espoir — bénéficiaires</h2><div class="kpis">${kpi(O.total, "Bénéficiaires inscrits")}</div>
   ${[["Type de handicap", O.handicap], ["Besoins identifiés", O.besoins], ["Sexe", O.sexe], ["Commune / quartier", O.commune]].map(([t, r]) => `<div class="panneau"><b>${t}</b><table class="tb">${bars(r) || "<tr><td>—</td></tr>"}</table></div>`).join("")}`;
   $("#rf").onclick = () => load(code);

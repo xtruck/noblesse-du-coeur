@@ -95,6 +95,16 @@ const FORMS = {
       { k: "mode", t: "radio", l: "Mode souhaité", opts: ["En présentiel (tablette au centre)", "À distance", "Les deux"] },
       { k: "message", t: "textarea", l: "Message" }],
   },
+  eleve_inscr: {
+    titre: "Inscription de l'élève", court: "Inscription élève", img: "plateau", couleur: "#14472f", autre: "Inscrire un autre élève",
+    desc: "Campagne de sensibilisation en milieu scolaire (Bingerville, 2026-2027). Chaque élève s'inscrit avec son nom, son prénom et sa classe.",
+    champs: [
+      { k: "etablissement", t: "select", l: "Établissement", req: true, opts: ["", "Lycée Mamie Faitai de Bingerville", "Lycée de Garçons Gnaléga Mémé Jérémie de Bingerville"] },
+      { k: "groupe", t: "select", l: "Groupe", req: true, half: true, opts: ["", "Groupe 1", "Groupe 2"] },
+      { k: "classe", t: "text", l: "Classe (ex. 3ème 2, 2nde A, Tle D)", req: true, half: true },
+      { k: "nom", t: "text", l: "Nom", req: true, half: true, help: "Ces informations servent uniquement à organiser la campagne et ne sont vues que par l'équipe du programme." },
+      { k: "prenom", t: "text", l: "Prénoms", req: true, half: true }],
+  },
   ong: {
     titre: "Inscription des bénéficiaires", court: "ONG — Inscription", img: "bassam", couleur: "#2e7d4f", ong: true,
     desc: "Fiche individuelle du bénéficiaire de l'ONG Lueur d'Espoir. Les informations sont confidentielles et servent uniquement à l'accompagnement.",
