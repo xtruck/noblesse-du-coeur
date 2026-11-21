@@ -378,6 +378,11 @@ async function load(code, btn) {
   if (notConfigured()) { montrerLogin("La base de données n'est pas encore connectée."); return; }
   if (btn && window.UI) UI.charge(btn, true, "Vérification…"); else $("#dash").innerHTML = SQUELETTE;
   const d = await appelApi({ action: "stats", code });
+  if (!d.ok && btn && btn.id === "rf" && !/code/i.test(d.error || "")) {   // actualisation ratée (réseau, serveur lent) : on garde les chiffres à l'écran et on explique
+    window.UI && UI.charge(btn, false, "Actualiser");
+    let m = $("#err-rf"); if (!m) { m = Object.assign(document.createElement("div"), { id: "err-rf", className: "warn" }); m.setAttribute("role", "alert"); btn.closest(".actions").after(m); }
+    m.textContent = (d.error || "Actualisation impossible.") + " Les chiffres affichés datent de la dernière mise à jour réussie."; return;
+  }
   if (!d.ok) { try { sessionStorage.removeItem("ndc_code"); } catch (e) {} montrerLogin(d.error || "Code incorrect"); return; }
   try { sessionStorage.setItem("ndc_code", code); } catch (e) {}
   const fr = x => String(x).replace(".", ","), P = d.programme, O = d.ong, A = d.autres || {}, I = d.inscritsEleves || { total: 0, parGroupe: [] }, pct = x => x == null ? "—" : fr(x) + " %", n2 = x => x == null ? "—" : fr(x);
