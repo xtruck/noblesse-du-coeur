@@ -122,6 +122,14 @@ test('les marques *mot* des titres d\'étapes ne fuient jamais dans les libellé
   }
 });
 
+test('tout appel au serveur passe par appelApi, qui a un délai maximal (jamais de roue qui tourne sans fin)', () => {
+  const sansHelper = app.replace(/async function appelApi[\s\S]*?\n\}\n/, '');
+  assert.ok(!/fetch\(API_URL/.test(sansHelper), 'un appel direct à fetch(API_URL) contourne le délai maximal');
+  assert.ok(/AbortController/.test(app) && /signal:\s*ctrl\.signal/.test(app), 'appelApi n\'utilise pas AbortController');
+  assert.ok(/DELAI_API\s*=\s*(\d+)/.test(app) && +app.match(/DELAI_API\s*=\s*(\d+)/)[1] <= 60000, 'délai maximal absent ou supérieur à 60 s');
+  assert.ok((app.match(/appelApi\(/g) || []).length >= 3, 'envoi des fiches et tableau de bord doivent utiliser appelApi');
+});
+
 test('accessibilité : mouvement réduit respecté, focus visible, lien d\'évitement, cibles tactiles d\'au moins 44 px', () => {
   assert.ok(/prefers-reduced-motion:\s*reduce/.test(css), 'prefers-reduced-motion absent du CSS');
   assert.ok(/:focus-visible/.test(css), 'focus visible absent');

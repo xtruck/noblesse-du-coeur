@@ -11,6 +11,16 @@ const app = () => document.getElementById("app") || document.body.appendChild(Ob
 const jauge = p => { const j = $(".jauge i"); if (j) j.style.setProperty("--p", p); };   // barre de progression : transform, pas de largeur animée
 const UIok = () => window.UI && UI.pret();
 
+/* Appel au serveur Apps Script avec un délai maximal : jamais de roue qui tourne sans fin.
+   Après 45 s sans réponse, l'envoi est abandonné et un message clair s'affiche. */
+const DELAI_API = 45000;
+async function appelApi(corps) {
+  const ctrl = new AbortController(), minuteur = setTimeout(() => ctrl.abort(), DELAI_API);
+  try { return await (await fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(corps), signal: ctrl.signal })).json(); }
+  catch (e) { return { ok: false, error: e.name === "AbortError" ? "Le serveur met trop de temps à répondre. Attendez quelques minutes, puis réessayez." : "Connexion impossible. Vérifiez internet puis réessayez." }; }
+  finally { clearTimeout(minuteur); }
+}
+
 /* Navigation principale : la même liste sert à l'en-tête (écran large) et au tiroir (mobile) */
 const NAV = [["index.html", "Parcours"], ["quiz.html", "Quiz"], ["liens.html", "Liens"], ["dashboard.html", "Résultats"]];
 const CTA_NAV = ["form.html?f=eleve_inscr", "Inscription élèves"];
@@ -302,8 +312,7 @@ async function submit(key, form) {
   const btn = form.querySelector("button[type=submit]"); window.UI ? UI.charge(btn, true, "Envoi en cours…") : (btn.disabled = true);
   let res = { ok: true, demo: true };
   if (!notConfigured()) {
-    try { res = await (await fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(data) })).json(); }
-    catch (e) { res = { ok: false, error: "Connexion impossible. Vérifiez internet puis réessayez." }; }
+    res = await appelApi(data);
   }
   if (!res.ok) { window.UI ? UI.charge(btn, false, "Envoyer la fiche") : (btn.disabled = false); err.innerHTML = `<div class="warn" role="alert">${esc(res.error || "Erreur")}</div>`; return; }
   const f = FORMS[key], again = location.search;
@@ -362,9 +371,7 @@ const SQUELETTE = `<div class="sk t"></div><div class="kpis">${'<div class="sk">
 async function load(code, btn) {
   if (notConfigured()) { montrerLogin("La base de données n'est pas encore connectée."); return; }
   if (btn && window.UI) UI.charge(btn, true, "Vérification…"); else $("#dash").innerHTML = SQUELETTE;
-  let d;
-  try { d = await (await fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "stats", code }) })).json(); }
-  catch (e) { montrerLogin("Connexion impossible. Vérifiez internet puis réessayez."); return; }
+  const d = await appelApi({ action: "stats", code });
   if (!d.ok) { try { sessionStorage.removeItem("ndc_code"); } catch (e) {} montrerLogin(d.error || "Code incorrect"); return; }
   try { sessionStorage.setItem("ndc_code", code); } catch (e) {}
   const fr = x => String(x).replace(".", ","), P = d.programme, O = d.ong, A = d.autres || {}, I = d.inscritsEleves || { total: 0, parGroupe: [] }, pct = x => x == null ? "—" : fr(x) + " %", n2 = x => x == null ? "—" : fr(x);
