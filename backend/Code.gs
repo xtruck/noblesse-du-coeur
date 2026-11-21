@@ -348,15 +348,18 @@ function calculer(D, opts) {
   function pers(r, type) {
     var k = type + '|' + [r.etablissement, r.nom, r.prenom, r.classe || r.tel].map(norm).join('|');
     return PP[k] || (PP[k] = { type: type, nom: String(r.nom || '').trim(), prenom: String(r.prenom || '').trim(), etab: String(r.etablissement || '').trim(),
-      classe: String(r.classe || '').trim(), formation: '', quizEssais: 0, quizTot: 0, examPct: null, examReussi: null });
+      classe: String(r.classe || '').trim(), formation: '', quizEssais: 0, quizTot: 0, modules: {}, examPct: null, examReussi: null, tel: String(r.tel || '').trim() });
   }
   EI.forEach(function (r) { pers(r, 'Élève'); });
-  I.forEach(function (r) { var o = pers({ nom: r.nom, tel: r.tel }, 'Participant'); o.formation = String(r.formation || ''); o.prenom = ''; });
-  QZ.forEach(function (r) { var o = pers(r, r.profil === 'participant' ? 'Participant' : 'Élève'); o.quizEssais++; o.quizTot += num(r.pct) || 0; });
+  I.forEach(function (r) { var o = pers({ nom: r.nom, tel: r.tel }, 'Participant'); o.formation = String(r.formation || ''); o.prenom = ''; o.tel = String(r.tel || '').trim(); });
+  QZ.forEach(function (r) { var o = pers(r, r.profil === 'participant' ? 'Participant' : 'Élève'); o.quizEssais++; o.quizTot += num(r.pct) || 0;
+    var mk = String(r.module || ''), mm = o.modules[mk] = o.modules[mk] || { titre: String(r.titre || mk), n: 0, best: 0, dernier: 0 };
+    mm.n++; mm.dernier = num(r.pct) || 0; mm.best = Math.max(mm.best, mm.dernier); });
   X.forEach(function (x) { var o = pers({ etablissement: x.etab, nom: x.nom, prenom: x.prenom, classe: x.classe }, 'Élève'); o.examPct = x.pct; o.examReussi = x.reussi; });
   out.personnes = Object.keys(PP).map(function (k) { var o = PP[k];
     return { type: o.type, nom: o.nom, prenom: o.prenom, etab: o.etab, classe: o.classe, formation: o.formation, quizEssais: o.quizEssais,
-             quizMoy: o.quizEssais ? Math.round(o.quizTot / o.quizEssais) : null, examPct: o.examPct, examReussi: o.examReussi };
+             quizMoy: o.quizEssais ? Math.round(o.quizTot / o.quizEssais) : null, examPct: o.examPct, examReussi: o.examReussi, tel: o.tel,
+             modules: Object.keys(o.modules).sort().map(function (k) { return { module: k, titre: o.modules[k].titre, n: o.modules[k].n, best: o.modules[k].best, dernier: o.modules[k].dernier }; }) };
   }).sort(function (a, b) { return (a.type + a.etab + a.classe + a.nom).localeCompare(b.type + b.etab + b.classe + b.nom); }).slice(0, 3000);
   return out;
 }

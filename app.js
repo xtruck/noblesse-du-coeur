@@ -407,6 +407,7 @@ async function load(code, btn) {
   ${[["Type de handicap", O.handicap], ["Besoins identifiés", O.besoins], ["Sexe", O.sexe], ["Commune / quartier", O.commune]].map(([t, r]) => `<div class="panneau"><b>${t}</b><table class="tb">${bars(r) || "<tr><td>—</td></tr>"}</table></div>`).join("")}`;
   $("#rf").onclick = () => load(code, $("#rf"));
   const ex = $("#export-csv"); if (ex) ex.onclick = () => exporterCsv(d.personnes || []);
+  brancherPersonnes();
   window.UI && UI.revele($("#dash"));
 }
 
@@ -419,12 +420,42 @@ function sectionsResultats(d, fr, kpi, pct, n2) {
   <div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Note</th><th>Axe 1</th><th>Axe 2</th><th></th></tr>${(X.liste || []).map(x => `<tr><td><b>${esc(x.nom)} ${esc(x.prenom)}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td>${x.note} / ${x.total}</td><td>${x.axe1}</td><td>${x.axe2}</td><td>${oui(x.reussi)}</td></tr>`).join("") || '<tr><td colspan="7">Aucune copie.</td></tr>'}</table></div>
   <h2 class="sec">Quiz d'entraînement</h2><div class="kpis">${kpi(Q.tentatives, "Essais envoyés")}${kpi(Q.personnes, "Personnes ayant joué")}</div>
   <div class="panneau"><table class="tb"><tr><th>Module</th><th>Essais</th><th>Score moyen</th></tr>${(Q.parModule || []).map(m => `<tr><td>${esc(m.titre)}</td><td>${m.n}</td><td>${pct(m.moyennePct)}</td></tr>`).join("") || '<tr><td colspan="3">Aucun essai pour le moment.</td></tr>'}</table></div>
-  <h2 class="sec">Toutes les personnes (${L.length})</h2><div class="actions" style="margin:0 0 12px"><button class="btn" id="export-csv" type="button">Télécharger pour Excel (CSV)</button></div>
-  <div class="panneau"><table class="tb"><tr><th>Profil</th><th>Nom</th><th>Établissement ou formation</th><th>Classe</th><th>Quiz (essais, moy.)</th><th>Examen</th></tr>${L.map(p => `<tr><td>${esc(p.type)}</td><td><b>${esc((p.nom + " " + p.prenom).trim())}</b></td><td>${esc(p.etab || p.formation)}</td><td>${esc(p.classe)}</td><td>${p.quizEssais ? p.quizEssais + " · " + p.quizMoy + " %" : "—"}</td><td>${p.examPct == null ? "—" : fr(p.examPct) + " % " + (p.examReussi ? "✓" : "")}</td></tr>`).join("") || '<tr><td colspan="6">Personne pour le moment.</td></tr>'}</table></div>`;
+  <h2 class="sec">Toutes les personnes (${L.length})</h2><p class="help" style="margin:0 0 10px">Cherche un nom, filtre par profil ou par état, et clique sur une ligne pour voir le détail de la personne (modules de quiz, contact). « Télécharger » donne un fichier Excel avec tout le monde.</p>
+  <div class="barre-outils"><input id="rech" type="search" placeholder="Rechercher un nom, une classe, un lycée…" aria-label="Rechercher une personne">
+    <select id="filtre-profil" aria-label="Filtrer par profil"><option value="">Tous les profils</option><option>Élève</option><option>Participant</option></select>
+    <select id="filtre-etat" aria-label="Filtrer par état"><option value="">Tous les états</option><option value="examen">A passé l'examen</option><option value="sans-examen">N'a pas passé l'examen</option><option value="quiz">A fait des quiz</option><option value="sans-quiz">Aucun quiz</option></select>
+    <button class="btn" id="export-csv" type="button">Télécharger pour Excel</button></div>
+  <p class="help" id="compte-p" aria-live="polite"></p>
+  <div class="panneau"><table class="tb" id="tb-pers"><thead><tr><th>Profil</th><th>Nom</th><th>Établissement ou formation</th><th>Classe</th><th>Quiz</th><th>Examen</th></tr></thead><tbody>${L.map((p, n) => `<tr class="pers" tabindex="0" aria-expanded="false" data-n="${n}" data-profil="${esc(p.type)}" data-exam="${p.examPct == null ? 0 : 1}" data-quiz="${p.quizEssais ? 1 : 0}" data-q="${esc([p.type, p.nom, p.prenom, p.etab, p.classe, p.formation].join(" ").toLowerCase())}"><td>${esc(p.type)}</td><td><b>${esc((p.nom + " " + p.prenom).trim())}</b></td><td>${esc(p.etab || p.formation)}</td><td>${esc(p.classe)}</td><td>${p.quizEssais ? p.quizEssais + " essais · " + p.quizMoy + " %" : "—"}</td><td>${p.examPct == null ? "—" : fr(p.examPct) + " % " + (p.examReussi ? "✓" : "")}</td></tr>
+      <tr class="detail" hidden data-d="${n}"><td colspan="6">${detailPersonne(p, fr)}</td></tr>`).join("") || '<tr><td colspan="6">Personne pour le moment.</td></tr>'}</tbody></table></div>`;
+}
+/* fiche d'une personne : contact, résultat à l'examen, meilleur score de chaque module de quiz */
+function detailPersonne(p, fr) {
+  const mod = (p.modules || []).map(m => `<li><span>${esc(m.titre)}</span><b>${m.best} %</b><small>${m.n} essai${m.n > 1 ? "s" : ""}</small></li>`).join("");
+  return `<div class="fiche"><div><h4>Informations</h4><ul class="infos"><li><span>Profil</span><b>${esc(p.type)}</b></li>${p.etab ? `<li><span>Établissement</span><b>${esc(p.etab)}</b></li>` : ""}${p.classe ? `<li><span>Classe</span><b>${esc(p.classe)}</b></li>` : ""}${p.formation ? `<li><span>Formation</span><b>${esc(p.formation)}</b></li>` : ""}${p.tel ? `<li><span>Téléphone</span><b>${esc(p.tel)}</b></li>` : ""}
+    <li><span>Examen final</span><b>${p.examPct == null ? "pas encore passé" : fr(p.examPct) + " % · " + (p.examReussi ? "réussi" : "non réussi")}</b></li></ul></div>
+    <div><h4>Quiz d'entraînement</h4>${mod ? `<ul class="scores">${mod}</ul>` : "<p class=\"help\">Aucun quiz fait pour le moment.</p>"}</div></div>`;
+}
+/* recherche, filtres et ouverture de la fiche d'une personne */
+function brancherPersonnes() {
+  const tb = $("#tb-pers"); if (!tb) return;
+  const lignes = [...tb.querySelectorAll("tr.pers")], r = $("#rech"), fp = $("#filtre-profil"), fe = $("#filtre-etat"), c = $("#compte-p");
+  const appliquer = () => {
+    const q = r.value.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); let n = 0;
+    lignes.forEach(l => {
+      const e = fe.value, ok = (!q || l.dataset.q.normalize("NFD").replace(/[̀-ͯ]/g, "").includes(q)) && (!fp.value || l.dataset.profil === fp.value)
+        && (!e || (e === "examen" ? l.dataset.exam === "1" : e === "sans-examen" ? l.dataset.exam === "0" : e === "quiz" ? l.dataset.quiz === "1" : l.dataset.quiz === "0"));
+      l.hidden = !ok; const d = tb.querySelector(`tr.detail[data-d="${l.dataset.n}"]`); if (!ok) { d.hidden = true; l.setAttribute("aria-expanded", "false"); } if (ok) n++;
+    });
+    c.textContent = n + " personne" + (n > 1 ? "s" : "") + " affichée" + (n > 1 ? "s" : "") + " sur " + lignes.length + ".";
+  };
+  const basculer = l => { const d = tb.querySelector(`tr.detail[data-d="${l.dataset.n}"]`), ouvert = d.hidden; d.hidden = !ouvert; l.setAttribute("aria-expanded", ouvert); };
+  lignes.forEach(l => { l.onclick = () => basculer(l); l.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); basculer(l); } }; });
+  [r, fp, fe].forEach(x => x.addEventListener("input", appliquer)); appliquer();
 }
 function exporterCsv(L) {
   const cell = v => { v = String(v ?? ""); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };   // aucune cellule ne s'exécute comme une formule dans Excel
-  const lignes = [["Profil", "Nom", "Prénoms", "Établissement", "Classe", "Formation", "Quiz : essais", "Quiz : moyenne %", "Examen %", "Examen réussi"], ...L.map(p => [p.type, p.nom, p.prenom, p.etab, p.classe, p.formation, p.quizEssais, p.quizMoy ?? "", p.examPct ?? "", p.examReussi == null ? "" : p.examReussi ? "oui" : "non"])];
+  const lignes = [["Profil", "Nom", "Prénoms", "Établissement", "Classe", "Formation", "Téléphone", "Quiz : essais", "Quiz : moyenne %", "Examen %", "Examen réussi"], ...L.map(p => [p.type, p.nom, p.prenom, p.etab, p.classe, p.formation, p.tel || "", p.quizEssais, p.quizMoy ?? "", p.examPct ?? "", p.examReussi == null ? "" : p.examReussi ? "oui" : "non"])];
   const blob = new Blob(["﻿" + lignes.map(l => l.map(cell).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" });
   const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "noblesse-du-coeur-resultats.csv" });
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -506,26 +537,51 @@ function bienvenue(form, type, data, res) {
   const m = $("#merci"); if (m) m.focus({ preventScroll: true });
 }
 
+/* ---------------- aides communes aux quiz et à « Mon espace » ---------------- */
+const SEUIL_QUIZ = 70;                       // % à partir duquel un module est « maîtrisé » (simple encouragement : l'examen final a son propre seuil)
+const LETTRES = "ABCD";
+const melanger = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const sansMouvement = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const tousModules = () => typeof QUIZ === "undefined" ? [] : QUIZ.flatMap(a => a.modules.map(m => ({ ...m, axe: a.titre, axeId: a.id })));
+const etatModule = (best, m) => best[m.id] == null ? "afaire" : best[m.id] >= SEUIL_QUIZ ? "maitrise" : "encours";
+const LIBELLE_ETAT = { afaire: "À faire", encours: "À retravailler", maitrise: "Maîtrisé" };
+const minutes = m => Math.max(2, Math.round(m.questions.length * 0.4));
+/* bilan de la progression de la personne (meilleur score de chaque module, gardé sur son appareil) */
+function bilanQuiz() {
+  const best = store.get("ndc_quiz", {}), mods = tousModules();
+  const essayes = mods.filter(m => best[m.id] != null), maitrises = mods.filter(m => etatModule(best, m) === "maitrise");
+  const suivant = mods.find(m => best[m.id] == null) || mods.filter(m => etatModule(best, m) === "encours").sort((a, b) => best[a.id] - best[b.id])[0] || null;
+  return { best, mods, essayes, maitrises, suivant, total: mods.length,
+           moyenne: essayes.length ? Math.round(essayes.reduce((s, m) => s + best[m.id], 0) / essayes.length) : null,
+           pct: mods.length ? maitrises.length / mods.length : 0 };
+}
+/* anneau de progression : l'anneau se remplit quand allumerAnneaux() ajoute la classe « go » */
+const anneau = (p, texte, cls = "") => `<div class="anneau ${cls}" style="--p:${Math.max(0, Math.min(1, p))}"><svg viewBox="0 0 132 132" aria-hidden="true"><circle class="piste" cx="66" cy="66" r="52"/><circle class="val" cx="66" cy="66" r="52"/></svg><b>${texte}</b></div>`;
+const allumerAnneaux = () => requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll(".anneau").forEach(a => a.classList.add("go"))));
+const puce = (v, l) => `<div class="puce-stat"><b>${v}</b><span>${l}</span></div>`;
+
 /* ---------------- mon espace : ce que voit la personne dépend de son profil ---------------- */
 function renderEspace() {
   const p = profil();
   if (!p) { location.replace("commencer.html"); return; }
   document.title = "Mon espace — La Noblesse du Cœur";
-  const ac = acces(p), best = store.get("ndc_quiz", {}), mods = typeof QUIZ !== "undefined" ? QUIZ.flatMap(a => a.modules) : [];
-  const faits = mods.filter(m => best[m.id] != null).length;
-  const carte = (href, t, d, img) => `<a class="item" href="${href}"><span class="vignette" style="--v:url(img/${img}-thumb.webp)"></span><span class="txt"><b>${esc(t)}</b><span>${esc(d)}</span></span><span class="chev" aria-hidden="true"></span></a>`;
+  const ac = acces(p), B = bilanQuiz(), examen = store.get("ndc_examen_fait", null);
   const ident = p.type === "eleve" ? `${esc(p.etab)} · ${esc(p.classe)}` : esc(String(p.formation || "Participant(e) aux formations"));
-  app().innerHTML = header() + BANDEAU("savane", `<span class="eyebrow" style="--k:0">Mon espace</span><h1>Bonjour, <em>${esc(prenomDe(p))}</em></h1><p class="lead" style="--k:1">${ident}</p>`, true) + `
+  const etape = (n, etat, t, d, href) => `<li class="etat-${etat}" style="--k:${n}"><span class="pastille">${etat === "fait" ? "✓" : n}</span><div><b>${t}</b><span>${d}</span></div>${href ? `<a class="btn ${etat === "fait" ? "sec" : "or"} petit" href="${href}">${etat === "fait" ? "Revoir" : "Ouvrir"}</a>` : ""}</li>`;
+  const suite = ac.quiz && B.suivant ? `<a class="continuer" href="quiz.html?m=${esc(B.suivant.id)}"><span class="cont-eyebrow">${B.essayes.length ? "Continuer" : "Commencer"}</span><b>${esc(B.suivant.titre)}</b><span>${B.suivant.questions.length} questions · environ ${minutes(B.suivant)} min</span><i aria-hidden="true">→</i></a>` : "";
+  app().innerHTML = header() + `
+  <section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Mon espace</span><h1>Bonjour, <em>${esc(prenomDe(p))}</em></h1><p>${ident}</p></div>
+    ${ac.quiz ? `<div class="qtete-anneau">${anneau(B.pct, Math.round(B.pct * 100) + " %", "petit")}<small>${B.maitrises.length} / ${B.total} modules maîtrisés</small></div>` : ""}</div></section>
   <main class="wrap" id="contenu" tabindex="-1">
-    <h2 class="sec">${ac.quiz || ac.examen ? "À faire" : "Tes formations"}</h2>
-    <div class="liste">
-      ${ac.quiz ? carte("quiz.html", "Quiz d'entraînement", mods.length ? `${faits} module${faits > 1 ? "s" : ""} essayé${faits > 1 ? "s" : ""} sur ${mods.length}. La correction s'affiche après chaque question.` : "Réviser les modules, avec la correction après chaque question.", "plateau") : ""}
-      ${ac.examen ? carte("examen.html", "Examen final noté", "20 questions, une seule tentative. Ta copie est corrigée automatiquement et transmise à la direction.", "basilique") : ""}
-      ${!ac.quiz && !ac.examen ? `<div class="item"><span class="txt"><b>Évaluations de ta formation</b><span>L'équipe BMT publiera ici les quiz et les évaluations de ta formation. Reviens bientôt.</span></span></div>` : ""}
-    </div>
-    <div class="actions" style="margin-top:22px">${INSTALLER}<button type="button" class="btn sec" id="autre">Ce n'est pas moi</button></div>
+    ${suite}
+    ${ac.quiz || ac.examen ? `<h2 class="sec">Ton parcours</h2><ol class="etapes-esp">
+      ${etape(1, "fait", "Inscription", "Ton profil est enregistré.", "")}
+      ${ac.quiz ? etape(2, B.maitrises.length === B.total && B.total ? "fait" : "en-cours", "Quiz d'entraînement", `${B.maitrises.length} module${B.maitrises.length > 1 ? "s" : ""} maîtrisé${B.maitrises.length > 1 ? "s" : ""} sur ${B.total}${B.moyenne != null ? " · moyenne " + B.moyenne + " %" : ""}`, "quiz.html") : ""}
+      ${ac.examen ? etape(3, examen ? "fait" : "a-venir", "Examen final noté", examen ? "Ta copie est envoyée à la direction." : "20 questions, une seule tentative, corrigée automatiquement.", "examen.html") : ""}</ol>` : `<h2 class="sec">Tes formations</h2><div class="liste"><div class="item"><span class="txt"><b>Évaluations de ta formation</b><span>L'équipe BMT publiera ici les quiz et les évaluations de ta formation. Reviens bientôt.</span></span></div></div>`}
+    ${ac.quiz && B.essayes.length ? `<h2 class="sec">Tes scores</h2><div class="mres">${B.mods.map(m => { const s = B.best[m.id], e = etatModule(B.best, m); return `<a class="mres-l etat-${e}" href="quiz.html?m=${esc(m.id)}"><span>${esc(m.titre)}</span><div class="mbar"><i style="--w:${(s || 0) / 100}"></i></div><b>${s == null ? "—" : s + " %"}</b></a>`; }).join("")}</div>` : ""}
+    <div class="actions" style="margin-top:26px">${INSTALLER}<button type="button" class="btn sec" id="autre">Ce n'est pas moi</button></div>
     <p class="help">Astuce : pour garder le site sur ton téléphone, ouvre le menu du navigateur et choisis « Ajouter à l'écran d'accueil ».</p></main>` + FOOT;
   $("#autre").onclick = () => { try { localStorage.removeItem("ndc_profil"); } catch (e) {} location.href = "commencer.html"; };
-  brancherInstaller();
+  brancherInstaller(); allumerAnneaux();
   UIok();
 }

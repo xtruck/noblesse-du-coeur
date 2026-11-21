@@ -1,11 +1,7 @@
-/* Quiz d'entraînement — La Noblesse du Cœur.
-   Choix du module, questions une à une avec correction immédiate, résultat final avec « à revoir ».
-   Les questions sont dans quiz-data.js. Le meilleur score de chaque module reste dans le navigateur de l'élève (aucune donnée n'est envoyée). */
-const SEUIL_QUIZ = 70;                       // % à partir duquel on félicite l'élève (simple encouragement : l'examen final n'a pas de seuil fixé)
-const LETTRES = "ABCD";
-const melanger = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const tousModules = () => QUIZ.flatMap(a => a.modules.map(m => ({ ...m, axe: a.titre })));
-const sansMouvement = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+/* Quiz d'entraînement — La Noblesse du Cœur (mode application).
+   Menu : progression, « Continuer », modules en cartes. Jeu : une question à la fois, plein écran, correction expliquée.
+   Résultat : anneau, bilan, « à revoir ». Les questions sont dans quiz-data.js ; les aides communes (bilanQuiz, anneau…) dans app.js.
+   Le meilleur score de chaque module reste dans le navigateur, et chaque essai est aussi envoyé à l'équipe (voir envoyerScore). */
 
 /* Les quiz sont réservés aux personnes inscrites dont le profil y donne accès (voir acces() dans app.js). */
 function renderQuiz() {
@@ -18,85 +14,119 @@ function renderQuiz() {
 
 function menuQuiz() {
   document.title = "Quiz d'entraînement — La Noblesse du Cœur";
-  const best = store.get("ndc_quiz", {}), mods = tousModules();
-  const essayes = mods.filter(m => best[m.id] != null), moyenne = essayes.length ? Math.round(essayes.reduce((s, m) => s + best[m.id], 0) / essayes.length) : null;
-  const kpi = (v, l) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`;
-  app().innerHTML = header() + BANDEAU("savane", `<span class="eyebrow" style="--k:0">Entraînement · sans note</span><h1>Quiz d'<em>entraînement</em></h1>
-    <p class="lead" style="--k:1">Teste tes connaissances, module par module. La correction s'affiche après chaque question. Ces quiz sont un entraînement : ils ne comptent pas pour l'examen final, mais ton score est transmis à l'équipe pour suivre ta progression.</p>`, true) + `
-  <main id="contenu" tabindex="-1">
-    <section class="bande court"><div class="wrap"><div class="kpis">${kpi(essayes.length + " / " + mods.length, "Modules essayés")}${kpi(moyenne == null ? "—" : moyenne + " %", "Score moyen (meilleurs essais)")}</div></div></section>
-    ${QUIZ.map((a, i) => `<section class="etape bande${i % 2 ? " sable" : ""}"><div class="wrap"><div class="etape-tete"><div><h2>${esc(a.titre)}</h2></div></div><div class="liste">${a.modules.map(m => `
-    <a class="item" href="quiz.html?m=${esc(m.id)}"><span class="vignette" style="--v:url(img/${a.id === "axe1" ? "basilique" : "plateau"}-thumb.webp)"></span>
-      <span class="txt"><b>${esc(m.titre)}</b><span>${m.questions.length} questions${best[m.id] != null ? " · meilleur score : " + best[m.id] + " %" : " · pas encore essayé"}</span></span><span class="chev" aria-hidden="true"></span></a>`).join("")}</div></div></section>`).join("")}
-  </main>` + FOOT;
+  const B = bilanQuiz(), axes = QUIZ;
+  const carte = (m, i) => {
+    const e = etatModule(B.best, m), s = B.best[m.id];
+    return `<a class="mcarte etat-${e}" data-axe="${esc(m.axeId)}" href="quiz.html?m=${esc(m.id)}" style="--k:${i}"><span class="mnum">${i + 1}</span>
+      <div class="mcorps"><h3>${esc(m.titre.replace(/^Module \d+ · /, ""))}</h3><p class="mmeta">${m.questions.length} questions · environ ${minutes(m)} min</p>
+      <div class="mbar" aria-hidden="true"><i style="--w:${(s || 0) / 100}"></i></div></div>
+      <span class="mpuce">${LIBELLE_ETAT[e]}${s != null ? " · " + s + " %" : ""}</span></a>`;
+  };
+  const sec = a => { const mods = B.mods.filter(m => m.axeId === a.id); return `<section class="axe" data-axe="${esc(a.id)}"><h2 class="axe-t">${esc(a.titre)}<small>${mods.filter(m => etatModule(B.best, m) === "maitrise").length} / ${mods.length} maîtrisés</small></h2><div class="mgrille">${mods.map((m, n) => carte(m, n)).join("")}</div></section>`; };
+  app().innerHTML = header() + `
+  <section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Quiz d'entraînement</span><h1>Teste tes <em>connaissances</em></h1>
+    <p>La correction s'affiche après chaque question. Ces quiz ne comptent pas pour l'examen final, mais ton score est transmis à l'équipe pour suivre ta progression.</p>
+    ${B.suivant ? `<a class="btn or" href="quiz.html?m=${esc(B.suivant.id)}">${B.essayes.length ? "Continuer" : "Commencer"} : ${esc(B.suivant.titre.replace(/^Module \d+ · /, ""))}</a>` : '<p class="felic">Tous les modules sont maîtrisés. Bravo !</p>'}</div>
+    <div class="qtete-anneau">${anneau(B.pct, Math.round(B.pct * 100) + " %", "petit")}<small>progression</small></div></div>
+    <div class="wrap puces">${puce(B.essayes.length + " / " + B.total, "modules essayés")}${puce(B.maitrises.length, "maîtrisés (" + SEUIL_QUIZ + " % et plus)")}${puce(B.moyenne == null ? "—" : B.moyenne + " %", "score moyen")}</div></section>
+  <main class="wrap" id="contenu" tabindex="-1">
+    <div class="segment" role="group" aria-label="Filtrer par axe"><button type="button" aria-pressed="true" data-f="">Tous</button>${axes.map(a => `<button type="button" aria-pressed="false" data-f="${esc(a.id)}">${esc(a.titre.split(" · ")[0])}</button>`).join("")}</div>
+    ${axes.map(sec).join("")}</main>` + FOOT;
+  document.querySelectorAll(".segment button").forEach(b => b.onclick = () => {
+    document.querySelectorAll(".segment button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    document.querySelectorAll(".axe").forEach(s => { s.hidden = !!b.dataset.f && s.dataset.axe !== b.dataset.f; });
+  });
+  allumerAnneaux();
   UIok();
 }
 
-/* Envoie le score à l'équipe (une ligne par essai). Si le réseau manque, le quiz reste utilisable : l'envoi est simplement ignoré. */
+/* Envoie le score à l'équipe (une ligne par essai). Si le réseau manque, le quiz reste utilisable : l'envoi est simplement signalé. */
 async function envoyerScore(m, bon, total, pct) {
-  const pr = profil(); if (!pr || notConfigured()) return;
+  const pr = profil(), zone = document.getElementById("envoi-etat");
+  if (!pr || notConfigured()) { if (zone) zone.textContent = "Mode démonstration : score gardé sur cet appareil."; return; }
   const id = pr.type === "eleve" ? { etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe } : { nom: pr.nom, tel: pr.tel };
   const res = await appelApi({ form: "quiz", profil: pr.type, ...id, module: m.id, titre: m.titre, score: bon, total, pct });
-  const z = document.getElementById("zone"), note = z && z.querySelector(".ok.centre"); if (!note) return;
-  note.insertAdjacentHTML("beforeend", `<p class="help" role="status">${res.ok ? "Résultat transmis à l'équipe." : "Résultat non transmis (réseau). Ton score reste noté sur cet appareil."}</p>`);
+  const z = document.getElementById("envoi-etat"); if (!z) return;
+  z.className = "envoi-etat " + (res.ok ? "envoi-bon" : "envoi-mal");
+  z.textContent = res.ok ? "Résultat transmis à l'équipe." : "Résultat non transmis (réseau). Ton score reste noté sur cet appareil.";
 }
 
 function jouerQuiz(m) {
   document.title = m.titre + " — Quiz — La Noblesse du Cœur";
   // chaque partie : questions dans un ordre différent, et réponses mélangées (la bonne réponse change de place)
   const Q = melanger(m.questions).map(q => ({ ...q, o: melanger([{ t: q.ok, ok: true }, ...q.faux.map(t => ({ t, ok: false }))]) }));
-  let i = 0, bon = 0; const ratees = [];
-  app().innerHTML = header() + BANDEAU("savane", `<span class="eyebrow" style="--k:0">${esc(m.axe)}</span><h1>${esc(m.titre)}</h1>`, true) + `
-  <div class="progression"><div class="wrap"><b>Question</b><span class="jauge" role="progressbar" aria-label="Avancement"><i></i></span><small id="pc"></small></div></div>
-  <main class="wrap" id="contenu" tabindex="-1"><div id="zone"></div></main>` + FOOT;
-  const zone = $("#zone");
+  let i = 0, bon = 0, serie = 0, repondu = false; const ratees = [], debut = performance.now(), etats = Q.map(() => "");
+  app().innerHTML = `<a class="saut" href="#contenu">Aller à la question</a><div class="qjeu">
+    <header class="qbar"><a class="qx" href="quiz.html" aria-label="Quitter le quiz"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
+      <div class="qtitre"><b>${esc(m.titre.replace(/^Module \d+ · /, ""))}</b><span>${esc(m.axe)}</span></div><div class="qscore" title="Bonnes réponses"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg><b id="qb">0</b></div></header>
+    <div class="segs" role="progressbar" aria-label="Avancement" aria-valuemin="1" aria-valuemax="${Q.length}" aria-valuenow="1">${Q.map(() => "<i></i>").join("")}</div>
+    <main id="contenu" tabindex="-1"><div id="zone"></div></main></div>`;
+  const zone = $("#zone"), segs = [...document.querySelectorAll(".segs i")];
+  const maj = () => { segs.forEach((s, k) => { s.className = etats[k] + (k === i && !etats[k] ? " now" : ""); }); $(".segs").setAttribute("aria-valuenow", i + 1); };
 
   function question() {
-    jauge(i / Q.length); $("#pc").textContent = (i + 1) + " / " + Q.length;
+    repondu = false; maj();
     const q = Q[i];
-    zone.innerHTML = `<div class="bloc no-rv entre"><h2 tabindex="-1" id="enonce">${esc(q.q)}</h2><div class="qopts">${q.o.map((x, k) =>
-      `<button type="button" class="qopt" data-k="${k}"><b>${LETTRES[k]}</b><span>${esc(x.t)}</span></button>`).join("")}</div><div id="fb" aria-live="polite"></div></div>`;
+    zone.innerHTML = `<div class="qcarte entre"><p class="qnum">Question ${i + 1} sur ${Q.length}</p><h2 tabindex="-1" id="enonce">${esc(q.q)}</h2><div class="qopts">${q.o.map((x, k) =>
+      `<button type="button" class="qopt" data-k="${k}" aria-keyshortcuts="${LETTRES[k]} ${k + 1}"><b>${LETTRES[k]}</b><span>${esc(x.t)}</span></button>`).join("")}</div>
+      <p class="astuce-clavier">Clavier : touches A, B, C, D (ou 1 à 4), puis Entrée.</p><div id="fb" aria-live="polite"></div></div>`;
     zone.querySelectorAll(".qopt").forEach(b => b.onclick = () => repondre(+b.dataset.k));
-    if (i > 0) { const e = $("#enonce"); e.focus({ preventScroll: true }); zone.scrollIntoView({ behavior: sansMouvement() ? "auto" : "smooth", block: "start" }); }   // la nouvelle question est annoncée et ramenée en vue
+    if (i > 0) { $("#enonce").focus({ preventScroll: true }); scrollTo({ top: 0, behavior: sansMouvement() ? "auto" : "smooth" }); }
   }
 
   function repondre(k) {
+    if (repondu) return; repondu = true;
     const q = Q[i], juste = q.o[k].ok;
     zone.querySelectorAll(".qopt").forEach((b, j) => {
       b.disabled = true;
       if (q.o[j].ok) { b.classList.add("bon"); b.insertAdjacentHTML("beforeend", '<i class="tag">Bonne réponse</i>'); }
       else if (j === k) { b.classList.add("faux"); b.insertAdjacentHTML("beforeend", '<i class="tag">Ta réponse</i>'); }
     });
-    if (juste) bon++; else ratees.push(q);
+    if (juste) { bon++; serie++; $("#qb").textContent = bon; } else { ratees.push(q); serie = 0; }
+    etats[i] = juste ? "s-ok" : "s-ko"; maj();
     const dernier = i === Q.length - 1;
-    $("#fb").innerHTML = `<div class="${juste ? "ok" : "note"} qfb"><h3>${juste ? "Bonne réponse" : "Pas tout à fait"}</h3><p>${esc(q.e)}</p><small>Dans le cours : ${esc(q.ref)}</small></div>
-      <div class="actions"><button type="button" class="btn" id="suite">${dernier ? "Voir mon résultat" : "Question suivante"}</button></div>`;
-    $("#suite").onclick = () => { i++; i < Q.length ? question() : resultat(); };
+    $("#fb").innerHTML = `<div class="qfeed ${juste ? "bon" : "mal"}"><div class="qfeed-t"><span class="ico" aria-hidden="true">${juste ? "✓" : "i"}</span><h3>${juste ? (serie >= 3 ? "Bonne réponse · série de " + serie : "Bonne réponse") : "Pas tout à fait"}</h3></div>
+      <p>${esc(q.e)}</p><small>Dans le cours : ${esc(q.ref)}</small>
+      <button type="button" class="btn ${juste ? "" : "or"}" id="suite">${dernier ? "Voir mon résultat" : "Question suivante"}</button></div>`;
+    $("#suite").onclick = suite;
     $("#suite").focus({ preventScroll: true });
     $("#suite").scrollIntoView({ behavior: sansMouvement() ? "auto" : "smooth", block: "nearest" });
   }
+  const suite = () => { i++; i < Q.length ? question() : resultat(); };
+
+  /* clavier : A-D ou 1-4 choisissent une réponse ; Entrée passe à la suite */
+  const touche = e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = "abcd1234".indexOf(e.key.toLowerCase());
+    if (k >= 0 && !repondu && $(".qopt")) { const b = zone.querySelectorAll(".qopt")[k % 4]; if (b) { e.preventDefault(); b.click(); } }
+    else if (e.key === "Enter" && repondu && $("#suite") && document.activeElement !== $("#suite")) { e.preventDefault(); $("#suite").click(); }
+  };
+  document.addEventListener("keydown", touche);
 
   function resultat() {
-    const pct = Math.round(bon / Q.length * 100), s = bon > 1 ? "s" : "", reussi = pct >= SEUIL_QUIZ;
+    document.removeEventListener("keydown", touche);
+    const pct = Math.round(bon / Q.length * 100), s = bon > 1 ? "s" : "", reussi = pct >= SEUIL_QUIZ, sec = Math.round((performance.now() - debut) / 1000);
     const best = store.get("ndc_quiz", {}), record = best[m.id] != null && pct > best[m.id];
     if (best[m.id] == null || pct > best[m.id]) { best[m.id] = pct; store.set("ndc_quiz", best); }
-    jauge(1); $("#pc").textContent = "Terminé";
     envoyerScore(m, bon, Q.length, pct);
-    // étincelles dorées autour de l'anneau quand le module est maîtrisé
-    const etincelles = reussi ? Array.from({ length: 18 }, (_, n) => { const a = (n / 18) * 2 * Math.PI + Math.random() * .3, r = 78 + Math.random() * 46; return `<i class="etincelle" style="--k:${n};--dx:${Math.round(Math.cos(a) * r)}px;--dy:${Math.round(Math.sin(a) * r)}px"></i>`; }).join("") : "";
-    zone.innerHTML = `<div class="bloc no-rv entre"><div class="ok centre">
-      <div class="anneau" style="--p:${pct / 100}"><svg viewBox="0 0 132 132" aria-hidden="true"><circle class="piste" cx="66" cy="66" r="52"/><circle class="val" cx="66" cy="66" r="52"/></svg><b aria-hidden="true" id="pctn">${sansMouvement() ? pct + " %" : "0 %"}</b>${etincelles}</div>
-      <h3 tabindex="-1" id="enonce">${bon} bonne${s} réponse${s} sur ${Q.length} (${pct} %)</h3>
-      <p>${reussi ? "Bravo, tu maîtrises ce module." : "Relis le cours, puis réessaie : tu progresseras vite."}${record ? " C'est ton meilleur score." : ""}</p></div>
-      ${ratees.length ? `<h2 style="margin-top:18px">À revoir</h2>${ratees.map(q => `<div class="rev"><b>${esc(q.q)}</b><p>Bonne réponse : ${esc(q.ok)}</p><small>Dans le cours : ${esc(q.ref)}</small></div>`).join("")}` : ""}
-      <div class="actions" style="margin-top:16px"><a class="btn" href="quiz.html?m=${esc(m.id)}">Refaire ce quiz</a><a class="btn sec" href="quiz.html">Autres quiz</a></div></div>`;
+    const mods = tousModules(), B = bilanQuiz(), suivant = B.suivant && B.suivant.id !== m.id ? B.suivant : mods[mods.findIndex(x => x.id === m.id) + 1];
+    const titre = pct >= 90 ? "Excellent !" : reussi ? "Module maîtrisé" : pct >= 50 ? "Bien parti" : "On s'accroche";
+    const mot = reussi ? "Tu maîtrises ce module." : "Relis le cours, puis réessaie : tu progresseras vite.";
+    const etincelles = reussi && !sansMouvement() ? Array.from({ length: 20 }, (_, n) => { const a = (n / 20) * 2 * Math.PI + Math.random() * .3, r = 90 + Math.random() * 60; return `<i class="etincelle" style="--k:${n};--dx:${Math.round(Math.cos(a) * r)}px;--dy:${Math.round(Math.sin(a) * r)}px"></i>`; }).join("") : "";
+    etats.fill(""); segs.forEach((x, k) => { x.className = Q[k] && ratees.includes(Q[k]) ? "s-ko" : "s-ok"; });
+    $(".qscore").hidden = true;
+    zone.innerHTML = `<div class="qres entre"><div class="anneau-grand">${anneau(pct / 100, sansMouvement() ? pct + " %" : "0 %", "grand")}${etincelles}</div>
+      <h2 tabindex="-1" id="enonce">${titre}</h2><p class="qres-mot">${bon} bonne${s} réponse${s} sur ${Q.length}. ${mot}${record ? " C'est ton meilleur score." : ""}</p>
+      <div class="puces centre">${puce(bon, "bonnes")}${puce(Q.length - bon, "à revoir")}${puce(Math.floor(sec / 60) + " min " + String(sec % 60).padStart(2, "0"), "durée")}</div>
+      <p class="envoi-etat" id="envoi-etat" role="status">Envoi du résultat…</p>
+      <div class="actions centre">${suivant ? `<a class="btn or" href="quiz.html?m=${esc(suivant.id)}">Module suivant</a>` : ""}<a class="btn ${suivant ? "sec" : ""}" href="quiz.html?m=${esc(m.id)}">Refaire ce quiz</a><a class="btn sec" href="quiz.html">Tous les quiz</a></div>
+      ${ratees.length ? `<h3 class="revoir-t">À revoir (${ratees.length})</h3><div class="revoir">${ratees.map(q => `<details class="rev"><summary>${esc(q.q)}</summary><p><b>Bonne réponse :</b> ${esc(q.ok)}</p><p>${esc(q.e)}</p><small>Dans le cours : ${esc(q.ref)}</small></details>`).join("")}</div>` : '<p class="felic">Aucune erreur : sans faute.</p>'}</div>`;
     scrollTo({ top: 0, behavior: sansMouvement() ? "auto" : "smooth" });
     $("#enonce").focus({ preventScroll: true });
-    // l'anneau se remplit, le pourcentage monte jusqu'à sa valeur
-    const anneau = $(".anneau"); requestAnimationFrame(() => requestAnimationFrame(() => anneau.classList.add("go")));
-    if (!sansMouvement()) {
-      const debut = performance.now(), n = $("#pctn");
-      const image = t => { const p = Math.min(1, (t - debut - 250) / 1100), e = 1 - Math.pow(1 - Math.max(p, 0), 3); n.textContent = Math.round(pct * e) + " %"; if (p < 1) requestAnimationFrame(image); };
+    allumerAnneaux();
+    if (!sansMouvement()) {   // le pourcentage monte jusqu'à sa valeur pendant que l'anneau se remplit
+      const t0 = performance.now(), n = $(".anneau b");
+      const image = t => { const p = Math.min(1, (t - t0 - 250) / 1100), e = 1 - Math.pow(1 - Math.max(p, 0), 3); n.textContent = Math.round(pct * e) + " %"; if (p < 1) requestAnimationFrame(image); };
       requestAnimationFrame(image);
     }
   }
