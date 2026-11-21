@@ -87,6 +87,7 @@ const FORMS = {
   },
   inscription: {
     titre: "Inscription aux formations", court: "Inscription formation", img: "plateau", couleur: "#2e6b47", formation: true,
+    profil: "participant",
     desc: "Inscription aux formations de BMT Green Academy. L'équipe BMT vous recontacte après réception de votre demande.",
     champs: [{ k: "nom", t: "text", l: "Nom et prénoms", req: true }, { k: "tel", t: "tel", l: "Téléphone (WhatsApp)", req: true, half: true },
       { k: "email", t: "email", l: "E-mail", half: true }, { k: "ville", t: "text", l: "Ville / commune", half: true },
@@ -97,14 +98,13 @@ const FORMS = {
   },
   eleve_inscr: {
     titre: "Inscription de l'élève", court: "Inscription élève", img: "plateau", couleur: "#14472f", autre: "Inscrire un autre élève",
-    // liens préremplis : form.html?f=eleve_inscr&lycee=mamie&groupe=1 choisit déjà l'établissement et le groupe (l'élève peut encore les changer)
-    prefill: { lycee: ["etablissement", { mamie: "Lycée Mamie Faitai de Bingerville", gnalega: "Lycée de Garçons Gnaléga Mémé Jérémie de Bingerville" }],
-               groupe: ["groupe", { 1: "Groupe 1", 2: "Groupe 2" }] },
+    // liens préremplis : form.html?f=eleve_inscr&lycee=mamie choisit déjà l'établissement (l'élève peut encore le changer)
+    prefill: { lycee: ["etablissement", { mamie: "Lycée Mamie Faitai de Bingerville", gnalega: "Lycée de Garçons Gnaléga Mémé Jérémie de Bingerville" }] },
+    profil: "eleve",
     desc: "Campagne de sensibilisation en milieu scolaire (Bingerville, 2026-2027). Chaque élève s'inscrit avec son nom, son prénom et sa classe.",
     champs: [
       { k: "etablissement", t: "select", l: "Établissement", req: true, opts: ["", "Lycée Mamie Faitai de Bingerville", "Lycée de Garçons Gnaléga Mémé Jérémie de Bingerville"] },
-      { k: "groupe", t: "select", l: "Groupe", req: true, half: true, opts: ["", "Groupe 1", "Groupe 2"] },
-      { k: "classe", t: "text", l: "Classe (ex. 3ème 2, 2nde A, Tle D)", req: true, half: true },
+      { k: "classe", t: "text", l: "Classe (ex. 3ème 2, 2nde A, Tle D)", req: true },
       { k: "nom", t: "text", l: "Nom", req: true, half: true, help: "Ces informations servent uniquement à organiser la campagne et ne sont vues que par l'équipe du programme." },
       { k: "prenom", t: "text", l: "Prénoms", req: true, half: true }],
   },

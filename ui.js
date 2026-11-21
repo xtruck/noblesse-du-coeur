@@ -7,7 +7,22 @@
   const reduit = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const $ = (s, r = document) => r.querySelector(s);
   const frein = (t, d) => 1 - Math.pow(1 - t, 3) * (d || 1);           // sortie douce (ease-out cubique)
-  let secours = setTimeout(() => UI.pret(), 4000);                      // quoi qu'il arrive, la page apparaît au bout de 4 s
+  /* Préchargeur enrichi : titre lettre par lettre, halos dorés autour des logos, étincelles qui montent,
+     et un mot de bienvenue personnalisé pour une personne déjà inscrite sur cet appareil. */
+  (() => {
+    const pre = $("#pre"), titre = pre && $(".pre-titre", pre); if (!pre || !titre || reduit) return;
+    const lettres = titre.textContent.trim();
+    titre.setAttribute("aria-label", lettres);
+    titre.innerHTML = [...lettres].map((c, i) => `<span class="l" aria-hidden="true" style="--k:${i}">${c === " " ? "&nbsp;" : c}</span>`).join("");
+    let prenom = ""; try { const p = JSON.parse(localStorage.getItem("ndc_profil")); prenom = p ? String(p.prenom || p.nom || "").split(/\s+/)[0] : ""; } catch (e) {}
+    const mot = prenom ? `Bienvenue, ${prenom.replace(/[&<>"]/g, "")}` : "Bienvenue";
+    $(".pre-sous", pre).insertAdjacentHTML("afterend", `<p class="pre-bienv">${mot}</p>`);
+    const f = document.createElement("div"); f.className = "pre-feu"; f.setAttribute("aria-hidden", "true");
+    f.innerHTML = Array.from({ length: 16 }, (_, k) => `<i style="--x:${(k * 37 + 11) % 100}%;--k:${k};--t:${2.6 + (k % 5) * .5}s"></i>`).join("");
+    pre.prepend(f);
+  })();
+
+  let secours = setTimeout(() => UI.pret(), 4000);                   // quoi qu'il arrive, la page apparaît au bout de 4 s
   let deja = false;
 
   const UI = window.UI = {

@@ -466,3 +466,47 @@ fieldset.bloc{margin:0 0 20px;min-width:0}
   .ouverture .fond{transform:none}
   .etincelle{display:none}
 }
+
+/* ---------- préchargeur enrichi : halos, lettres, étincelles, bienvenue (transform et opacity uniquement) ---------- */
+#pre{background:radial-gradient(ellipse at 50% 38%,#fffdf5 0%,var(--creme) 46%,#f1e8cc 100%);overflow:hidden}
+.pre-logos{position:relative}
+.pre-logos::before,.pre-logos::after{content:"";position:absolute;left:50%;top:50%;width:min(320px,82vw);aspect-ratio:1;margin:calc(min(320px,82vw)/-2) 0 0 calc(min(320px,82vw)/-2);border-radius:50%;border:1.5px solid var(--or-clair);opacity:0;animation:halo 2.8s var(--ease-net) infinite;pointer-events:none}
+.pre-logos::after{animation-delay:1.4s}
+@keyframes halo{0%{opacity:.7;transform:scale(.38)}100%{opacity:0;transform:scale(1.15)}}
+.pre-titre .l{display:inline-block;animation:lettre .6s var(--ease) both;animation-delay:calc(.25s + var(--k,0)*38ms)}
+@keyframes lettre{from{opacity:0;transform:translateY(.7em) rotate(4deg)}to{opacity:1;transform:none}}
+.pre-bienv{margin:-6px 0 0;font:italic 300 clamp(19px,4.6vw,26px)/1.2 var(--serif);color:var(--or-texte);animation:monte .8s 1s var(--ease) both}
+.pre-feu{position:absolute;inset:0;pointer-events:none}
+.pre-feu i{position:absolute;bottom:-12px;left:var(--x);width:7px;height:7px;border-radius:50%;background:var(--or-clair);box-shadow:0 0 12px 2px rgba(217,181,110,.7);opacity:0;animation:monte-feu var(--t,3s) calc(var(--k,0)*.17s) ease-out infinite}
+@keyframes monte-feu{0%{opacity:0;transform:translateY(0) scale(.5)}15%{opacity:.9}100%{opacity:0;transform:translateY(-82vh) scale(1.1)}}
+
+/* ---------- accueil, profils, parcours, bienvenue ---------- */
+.profils{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:22px;margin-top:26px}
+.carte-profil{position:relative;display:flex;flex-direction:column;gap:12px;padding:30px 28px;border-radius:var(--r);background:var(--blanc);border:1px solid var(--filet);box-shadow:var(--ombre);text-decoration:none;color:inherit;overflow:hidden;transition:transform var(--d-normal) var(--ease),box-shadow var(--d-normal),border-color var(--d-normal)}
+.carte-profil::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;background:linear-gradient(90deg,var(--or),var(--or-clair),var(--or));transform:scaleX(.18);transform-origin:left;transition:transform .6s var(--ease)}
+.carte-profil:hover,.carte-profil:focus-visible{transform:translateY(-6px);box-shadow:var(--ombre-haute);border-color:var(--or-filet)}
+.carte-profil:hover::before,.carte-profil:focus-visible::before{transform:scaleX(1)}
+.carte-profil .pic{display:grid;place-items:center;width:76px;height:76px;border-radius:22px;background:var(--vert-pale);color:var(--vert);transition:transform .5s var(--ease)}
+.carte-profil:hover .pic{transform:rotate(-6deg) scale(1.08)}
+.carte-profil .pic svg{width:44px;height:44px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.carte-profil h3{font:400 clamp(26px,5vw,32px)/1.1 var(--serif);color:var(--vert);margin:0}
+.carte-profil h3 em{color:var(--or-texte)}
+.carte-profil p{margin:0;color:var(--gris);font-size:16px}
+.carte-profil .aller{margin-top:auto;align-self:flex-start;padding:12px 20px;border-radius:999px;background:var(--vert);color:#fff;font-weight:700;font-size:15px;transition:transform var(--d-normal) var(--ease)}
+.carte-profil:hover .aller{transform:translateX(6px)}
+.pas{list-style:none;margin:26px 0 8px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:18px;counter-reset:p}
+.pas li{position:relative;padding:26px 22px 22px;border-radius:var(--r);background:var(--blanc);border:1px solid var(--filet);box-shadow:var(--ombre)}
+.pas li i{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--or);color:#fff;font:600 20px var(--serif);font-style:normal;margin-bottom:12px;box-shadow:0 6px 16px rgba(184,148,63,.4)}
+.pas h3{font:400 24px/1.15 var(--serif);color:var(--vert);margin:0 0 6px}
+.pas p{margin:0;color:var(--gris);font-size:15.5px}
+.bienvenue{position:relative;text-align:center;padding:38px 22px 30px;overflow:visible}
+.bienvenue .feu{position:absolute;left:50%;top:92px;width:0;height:0;pointer-events:none}
+.bienvenue .coche{width:78px;height:78px;margin:0 auto 8px;display:block}
+.bienvenue h2{font:300 clamp(34px,8vw,52px)/1.05 var(--serif);color:var(--vert);margin:6px 0 10px}
+.bienvenue h2 em{color:var(--or-texte);font-style:italic}
+.bienvenue .lead-b{font-size:18px;color:var(--gris);max-width:44ch;margin:0 auto 14px}
+.qopt.choisi{border-color:var(--vert);background:var(--vert-pale);box-shadow:0 0 0 2px var(--vert) inset}
+.qopt.choisi b{background:var(--vert);color:#fff}
+.regles{margin:14px 0 18px;padding-left:20px;display:grid;gap:8px;color:var(--gris)}
+.regles b{color:var(--encre)}
+.installer[hidden],#prog[hidden]{display:none!important}

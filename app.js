@@ -22,23 +22,29 @@ async function appelApi(corps) {
 }
 
 /* Navigation principale : la même liste sert à l'en-tête (écran large) et au tiroir (mobile) */
-const NAV = [["index.html", "Parcours"], ["quiz.html", "Quiz"], ["liens.html", "Liens"], ["dashboard.html", "Résultats"]];
-const CTA_NAV = ["form.html?f=eleve_inscr", "Inscription élèves"];
+/* Profil de la personne (élève ou participant) : gardé sur son appareil après l'inscription. Il décide de ce qu'elle voit dans « Mon espace ». */
+const FORMATION_NDC = "La Noblesse du Cœur — formation continue";
+const profil = () => { const p = store.get("ndc_profil", null); return p && p.type ? p : null; };
+const acces = p => ({ quiz: !!p && (p.type === "eleve" || String(p.formation || "").includes(FORMATION_NDC)), examen: !!p && p.type === "eleve" });
+const NAV = [["index.html", "Accueil"], ["equipe.html", "Espace équipe"]];                                   // site public
+const NAV_EQUIPE = [["equipe.html", "Parcours"], ["liens.html", "Liens"], ["dashboard.html", "Résultats"]];   // espace réservé à l'équipe
+const ctaNav = mode => mode === "equipe" ? ["index.html", "Site public"] : profil() ? ["espace.html", "Mon espace"] : ["commencer.html", "Commencer"];
 const courant = h => { const [p, q] = h.split("?"), ici = location.pathname.split("/").pop() || "index.html"; return p === ici && (!q || location.search.includes(q)); };
 const lienNav = ([h, t]) => `<a href="${h}"${courant(h) ? ' aria-current="page"' : ""}>${t}</a>`;
 
 function header(mode) {
+  const NAVX = mode === "equipe" ? NAV_EQUIPE : NAV, CTA_NAV = ctaNav(mode);
   const saut = `<a class="saut" href="#contenu">Aller au contenu</a>`;
   if (mode === "ong")   // page publique de l'ONG : en-tête minimal, sans navigation vers le reste du site
     return `${saut}<header class="ident"><div class="wrap"><div class="logo"><span class="nom"><b>ONG <em>Lueur</em> d'Espoir</b><span>Aidez-nous à nous aider</span></span></div>
     <img src="img/logo_lueur-160.webp" width="64" height="64" alt="ONG Lueur d'Espoir"></div></header><div class="tricolore"></div>`;
   return `${saut}<header class="ident"><div class="wrap">
     <a class="logo" href="index.html" aria-label="La Noblesse du Cœur, accueil"><span class="paire-logos"><img src="img/logo_bmt-160.webp" width="65" height="62" alt=""><i class="trait-or"></i><img src="img/logo_lueur-160.webp" width="62" height="62" alt=""></span><span class="nom"><b>La Noblesse du <em>Cœur</em></b><span>BMT Green Academy et ONG Lueur d'Espoir</span></span></a>
-    <nav class="nav" aria-label="Navigation principale">${NAV.map(lienNav).join("")}<a class="btn" href="${CTA_NAV[0]}">${CTA_NAV[1]}</a></nav>
+    <nav class="nav" aria-label="Navigation principale">${NAVX.map(lienNav).join("")}<a class="btn" href="${CTA_NAV[0]}">${CTA_NAV[1]}</a></nav>
     <button class="burger" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="tiroir"><span></span><span></span></button></div></header>
   <div class="voile"></div>
   <nav class="tiroir" id="tiroir" aria-label="Menu" aria-hidden="true"><div class="t-tete"><img src="img/logo_bmt-160.webp" width="67" height="64" alt="BMT Green Academy"><img src="img/logo_lueur-160.webp" width="64" height="64" alt="ONG Lueur d'Espoir"></div>
-    ${NAV.map(lienNav).join("")}<a class="btn" href="${CTA_NAV[0]}">${CTA_NAV[1]}</a><p class="t-bas">BMT Green Academy · ONG Lueur d'Espoir</p></nav><div class="tricolore"></div>`;
+    ${NAVX.map(lienNav).join("")}<a class="btn" href="${CTA_NAV[0]}">${CTA_NAV[1]}</a><p class="t-bas">BMT Green Academy · ONG Lueur d'Espoir</p></nav><div class="tricolore"></div>`;
 }
 /* les deux logos en très grand, présentés tels quels, sans fond (bandeau d'ouverture) */
 const DUO = `<div class="duo" aria-hidden="true"><img src="img/logo_bmt-480.webp" width="502" height="480" alt=""><img src="img/logo_lueur-480.webp" width="480" height="480" alt=""></div>`;
@@ -55,8 +61,8 @@ const PARTENAIRES = `<section class="bande partenaires" aria-labelledby="deux-or
   <p class="devise">Respect, dignité, leadership, paix.</p></div></section>`;
 const FOOT = `<footer><div class="wrap">
   <div class="a-propos-pied"><div class="ronds"><img src="img/logo_bmt-160.webp" width="167" height="160" alt="BMT Green Academy" loading="lazy"><img src="img/logo_lueur-160.webp" width="160" height="160" alt="ONG Lueur d'Espoir" loading="lazy"></div><b>La Noblesse du <em>Cœur</em></b>Respect, dignité, leadership, paix.<br>Programme d'éducation citoyenne, Côte d'Ivoire.</div>
-  <div><h4>Les élèves</h4><a href="form.html?f=eleve_inscr">Inscription des élèves</a><a href="quiz.html">Quiz d'entraînement</a><a href="index.html#pdf">Fiches à imprimer</a></div>
-  <div><h4>L'équipe</h4><a href="index.html">Parcours du programme</a><a href="liens.html">Tous les liens</a><a href="dashboard.html">Tableau de bord</a></div>
+  <div><h4>Élèves et participants</h4><a href="commencer.html">Commencer : s'inscrire</a><a href="espace.html">Mon espace</a></div>
+  <div><h4>L'équipe</h4><a href="equipe.html">Parcours du programme</a><a href="equipe.html#pdf">Fiches à imprimer</a><a href="liens.html">Tous les liens</a><a href="dashboard.html">Tableau de bord</a></div>
   <p class="partenaire">En partenariat avec l'Association des Arts-Thérapeutes, Coachs et Praticiens Holistiques de Côte d'Ivoire.</p></div></footer>`;
 const FOOT_ONG = `<footer><div class="wrap"><div><b>ONG Lueur d'Espoir</b>Aidez-nous à nous aider</div></div></footer>`;
 const DEMO = () => notConfigured() ? '<div class="warn"><b>Mode démonstration.</b> La base de données n\'est pas encore connectée : les formulaires fonctionnent, mais les réponses ne sont pas enregistrées.</div>' : "";
@@ -83,29 +89,28 @@ const ETAPES = [
   { id: "ong", court: "ONG", t: "ONG Lueur d'*Espoir*", s: "Inscrire les personnes accompagnées par l'ONG.", items: [
     ["ong", "", "Inscription des bénéficiaires", "Chaque inscription ouvre un dossier avec un numéro unique."]] },
   { id: "eleves", court: "Élèves", t: "Inscription des *élèves*", s: "Campagne de sensibilisation en milieu scolaire : un lien pour tous les élèves.", items: [
-    ["eleve_inscr", "", "Inscription de l'élève (lien général)", "Nom, prénoms, classe, établissement et groupe à choisir."],
-    ["eleve_inscr", "lycee=mamie&groupe=1", "Lycée Mamie Faitai · Groupe 1", "Lien à donner à ce groupe : l'établissement et le groupe sont déjà choisis."],
-    ["eleve_inscr", "lycee=mamie&groupe=2", "Lycée Mamie Faitai · Groupe 2", "Lien à donner à ce groupe : l'établissement et le groupe sont déjà choisis."],
-    ["eleve_inscr", "lycee=gnalega&groupe=1", "Lycée de Garçons Gnaléga Mémé Jérémie · Groupe 1", "Lien à donner à ce groupe : l'établissement et le groupe sont déjà choisis."],
-    ["eleve_inscr", "lycee=gnalega&groupe=2", "Lycée de Garçons Gnaléga Mémé Jérémie · Groupe 2", "Lien à donner à ce groupe : l'établissement et le groupe sont déjà choisis."]] },
-  { id: "quiz", court: "Quiz", t: "Quiz d'*entraînement*", s: "Pour les élèves : réviser les modules de l'Axe 1 et de l'Axe 2.", items: [
-    ["@quiz.html", "", "Quiz d'entraînement", "Questions à choix avec correction immédiate, sur téléphone."]] },
+    ["eleve_inscr", "", "Inscription de l'élève (lien général)", "L'élève choisit son lycée dans la liste, puis donne son nom, ses prénoms et sa classe."],
+    ["eleve_inscr", "lycee=mamie", "Lycée Mamie Faitai de Bingerville", "Lien à donner aux élèves de ce lycée : l'établissement est déjà choisi."],
+    ["eleve_inscr", "lycee=gnalega", "Lycée de Garçons Gnaléga Mémé Jérémie de Bingerville", "Lien à donner aux élèves de ce lycée : l'établissement est déjà choisi."]] },
+  { id: "quiz", court: "Quiz", t: "Quiz d'*entraînement*", s: "Pour les élèves : réviser les modules de l'Axe 1 et de l'Axe 2, puis passer l'examen final noté.", items: [
+    ["@quiz.html", "", "Quiz d'entraînement", "Questions à choix avec correction immédiate, sur téléphone."],
+    ["@examen.html", "", "Examen final noté", "20 questions corrigées par le serveur : une seule tentative, note transmise à la direction."]] },
   { id: "formations", court: "Formations", t: "Formations BMT Green *Academy*", s: "S'inscrire aux formations de BMT Green Academy.", items: [
     ["inscription", "", "Inscription aux formations", "Demande d'inscription : l'équipe BMT vous recontacte."]] },
   { id: "pilotage", court: "Résultats", t: "*Résultats*", s: "Suivre le programme en direct.", items: [
     ["@dashboard.html", "", "Tableau de bord", "Inscrits, progrès, élèves éligibles et bénéficiaires.", true]] },
 ];
-const href = (k, ph) => k.startsWith("@") ? k.slice(1) : `form.html?f=${k}${ph ? "&" + (ph.includes("=") ? ph : "phase=" + ph) : ""}`;   // ph = "avant" / "apres", ou un paramètre complet (ex. « lycee=mamie&groupe=1 »)
+const href = (k, ph) => k.startsWith("@") ? k.slice(1) : `form.html?f=${k}${ph ? "&" + (ph.includes("=") ? ph : "phase=" + ph) : ""}`;   // ph = "avant" / "apres", ou un paramètre complet (ex. « lycee=mamie »)
 const vignette = k => (FORMS[k] || {}).img || (k.includes("certificat") ? "basilique" : "plateau");
 
 /* ---------------- accueil ---------------- */
 function renderHome() {
-  document.title = "La Noblesse du Cœur — saisie et suivi du programme";
-  app().innerHTML = header() + BANDEAU("basilique", `
-    <span class="eyebrow" style="--k:0">Programme 2026-2027 · Bingerville</span>
-    <h1>La Noblesse du <em>Cœur</em></h1>
-    <p class="lead" style="--k:1">Saisissez ici les fiches du programme, étape par étape. Chaque formulaire se remplit en une à trois minutes, à partir de la fiche papier.</p>
-    <div class="cta" style="--k:2"><a class="btn or" href="#avant">Commencer le parcours</a><a class="btn clair" href="quiz.html">Quiz des élèves</a></div>`) + PARTENAIRES + `
+  document.title = "Espace équipe — La Noblesse du Cœur";
+  app().innerHTML = header("equipe") + BANDEAU("basilique", `
+    <span class="eyebrow" style="--k:0">Espace équipe · Programme 2026-2027</span>
+    <h1>Espace <em>équipe</em></h1>
+    <p class="lead" style="--k:1">Saisissez ici les fiches du programme, étape par étape, puis suivez les résultats des élèves et des participants. Chaque formulaire se remplit en une à trois minutes.</p>
+    <div class="cta" style="--k:2"><a class="btn or" href="#avant">Commencer le parcours</a><a class="btn clair" href="dashboard.html">Voir les résultats</a></div>`) + PARTENAIRES + `
   <nav class="frise" aria-label="Étapes du programme"><ol>${ETAPES.map((e, i) => `<li><a href="#${e.id}"><i>${i + 1}</i>${e.court}</a></li>`).join("")}<span class="trait" aria-hidden="true"></span></ol></nav>
   <main id="contenu" tabindex="-1">${DEMO() ? `<div class="wrap">${DEMO()}</div>` : ""}
     ${ETAPES.map((e, i) => `<section class="etape bande${i % 2 ? " sable" : ""}${e.id === "quiz" ? " sombre" : ""}" id="${e.id}"><div class="wrap"><div class="etape-tete"><span class="num">${i + 1}</span><div><h2>${titreHtml(e.t)}</h2><p>${esc(e.s)}</p></div></div>
@@ -134,7 +139,7 @@ function renderLinks() {
   document.title = "Tous les liens — La Noblesse du Cœur";
   const text = ETAPES.map((e, i) => `*${i + 1}. ${brut(e.t)}*\n` + e.items.map(it => `${it[2]} :\n${BASE + href(it[0], it[1])}`).join("\n\n")).join("\n\n");
   const titre = "La Noblesse du Cœur — liens des formulaires\n\n";
-  app().innerHTML = header() + BANDEAU("hkb", `<span class="eyebrow" style="--k:0">Pour l'équipe</span><h1>Tous les <em>liens</em></h1><p class="lead" style="--k:1">Chaque lien avec son intitulé, à copier ou à envoyer par WhatsApp.</p>`, true) + `
+  app().innerHTML = header("equipe") + BANDEAU("hkb", `<span class="eyebrow" style="--k:0">Pour l'équipe</span><h1>Tous les <em>liens</em></h1><p class="lead" style="--k:1">Chaque lien avec son intitulé, à copier ou à envoyer par WhatsApp.</p>`, true) + `
   <main class="wrap" id="contenu" tabindex="-1"><div class="actions" style="margin:28px 0 4px"><button class="btn" id="cpall">Copier toute la liste</button>
     <a class="btn sec" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(titre + text)}">Envoyer par WhatsApp</a></div>
   ${ETAPES.map((e, i) => `<section class="etape"><div class="etape-tete"><span class="num">${i + 1}</span><div><h2>${titreHtml(e.t)}</h2></div></div><div class="liste">${e.items.map(it => { const u = BASE + href(it[0], it[1]); return `
@@ -200,18 +205,18 @@ function renderForm(key) {
   const phaseVal = ph === "avant" ? "Avant le programme" : ph === "apres" ? "Après le programme" : "";
   const titre = f.titre + (phaseVal ? (ph === "avant" ? ", avant le programme" : ", après le programme") : "");
   document.title = titre + " — La Noblesse du Cœur";
-  app().innerHTML = header(f.ong ? "ong" : "") + BANDEAU(f.img, `<span class="eyebrow" style="--k:0">${f.ong ? "Inscription" : "Saisie du programme"}</span><h1>${esc(titre)}</h1><p class="lead" style="--k:1">${esc(f.desc)}</p>`, true) + `
+  app().innerHTML = header(f.ong ? "ong" : f.profil ? "" : "equipe") + BANDEAU(f.img, `<span class="eyebrow" style="--k:0">${f.ong ? "Inscription" : f.profil ? "Étape 1 · Inscription" : "Saisie du programme"}</span><h1>${esc(titre)}</h1><p class="lead" style="--k:1">${esc(f.desc)}</p>`, true) + `
   <div class="progression"><div class="wrap"><b>${esc(f.court || f.titre)}</b><span class="jauge" role="progressbar" aria-label="Avancement"><i></i></span><small id="pc">0 %</small></div></div>
   <main class="wrap" id="contenu" tabindex="-1"><form class="f" novalidate><input type="text" name="site_web" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">${DEMO()}
     ${blocs(f.champs).map(b => `<fieldset class="bloc${b.solo ? " solo" : ""}" style="border:1px solid var(--filet)"><h2>${esc(b.t)}</h2><div class="row">${b.items.map(field).join("")}</div></fieldset>`).join("")}
     <div id="err"></div>
-    <div class="envoi"><div class="actions" style="margin:0"><button class="btn" type="submit">Envoyer la fiche</button>${f.ong ? "" : '<a class="btn sec" href="index.html">Retour à l\'accueil</a>'}</div>
+    <div class="envoi"><div class="actions" style="margin:0"><button class="btn" type="submit">Envoyer la fiche</button>${f.ong ? "" : f.profil ? '<a class="btn sec" href="commencer.html">Changer de profil</a>' : '<a class="btn sec" href="equipe.html">Retour à l\'espace équipe</a>'}</div>
     <p class="help" style="margin:8px 0 0">Les champs marqués <span class="req">*</span> sont obligatoires.</p></div>
   </form><datalist id="etabs"></datalist><datalist id="eleves"></datalist></main>` + (f.ong ? FOOT_ONG : FOOT);
   store.get("ndc_etabs", []).forEach(e => $("#etabs").insertAdjacentHTML("beforeend", `<option value="${esc(e)}">`));
   const last = store.get("ndc_last", {}); ["etab", "classe", "enseignant", "resp", "resp_prog", "chef", "ville"].forEach(k => { const el = $(`input[name=${k}]`); if (el && last[k]) el.value = last[k]; });
   if (phaseVal) { const r = $(`input[name=phase][value="${phaseVal}"]`); if (r) { r.checked = true; document.querySelectorAll("input[name=phase]").forEach(i => { if (!i.checked) i.closest("label").style.display = "none"; }); } }
-  const lien = new URLSearchParams(location.search);   // liens préremplis (ex. lycee=mamie&groupe=1)
+  const lien = new URLSearchParams(location.search);   // liens préremplis (ex. lycee=mamie)
   Object.entries(f.prefill || {}).forEach(([param, [champ, valeurs]]) => { const v = valeurs[lien.get(param)], el = $(`select[name=${champ}]`); if (v && el) el.value = v; });
   f.champs.filter(c => c.t === "rows").forEach(c => { const t = $(`[data-rows=${c.k}]`); for (let i = 0; i < 5; i++) addRow(c, t); $(`.addrow[data-k=${c.k}]`).onclick = () => addRow(c, t); });
   const majEleves = () => { const g = store.get("ndc_eleves", {}), k = ["etab", "classe"].map(n => { const i = $(`input[name=${n}]`); return i ? i.value.trim().toLowerCase() : ""; }).join("|"); $("#eleves").innerHTML = (g[k] || []).map(n => `<option value="${esc(n)}">`).join(""); };
@@ -316,6 +321,7 @@ async function submit(key, form) {
   }
   if (!res.ok) { window.UI ? UI.charge(btn, false, "Envoyer la fiche") : (btn.disabled = false); err.innerHTML = `<div class="warn" role="alert">${esc(res.error || "Erreur")}</div>`; return; }
   const f = FORMS[key], again = location.search;
+  if (f.profil) { store.set("ndc_profil", profilDepuis(f.profil, data)); bienvenue(form, f.profil, data, res); return; }
   form.innerHTML = `<div class="bloc no-rv" style="padding-bottom:14px"><div class="ok centre"><svg class="coche" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="25"/><path d="M14 27l8 8 16-17"/></svg><h3 tabindex="-1" id="merci">${res.demo ? "Fiche complète (mode démonstration, non enregistrée)" : "Fiche enregistrée"}</h3>
     ${res.numero ? `<p style="font-size:18px">Numéro : <b>${esc(res.numero)}</b></p><p>Notez ce numéro : il identifie le dossier.</p>` : ""}
     <p>Merci ! ${["eval", "ens", "suivi"].includes(key) ? "Vous pouvez saisir l'élève suivant : l'établissement et la classe sont conservés." : ""}</p></div>
@@ -340,7 +346,7 @@ const renderHorsLigne = () => renderVide("Hors connexion", "·&nbsp;·&nbsp;·",
 function renderCertificat() {
   document.title = "Certificat Ambassadeur Junior";
   const p = new URLSearchParams(location.search);
-  app().innerHTML = `<div class="noprint">${header()}<main class="wrap" id="contenu" tabindex="-1"><h2 class="sec">Certificat Ambassadeur Junior</h2>
+  app().innerHTML = `<div class="noprint">${header("equipe")}<main class="wrap" id="contenu" tabindex="-1"><h2 class="sec">Certificat Ambassadeur Junior</h2>
     <div class="bloc" style="margin-top:12px"><div class="row"><div class="fld half"><label for="cn">Nom et prénoms de l'élève</label><input id="cn" type="text" value="${esc(p.get("nom") || "")}"></div>
     <div class="fld half"><label for="cd">Date</label><input id="cd" type="text" value="${esc(p.get("date") || new Date().toLocaleDateString("fr-FR"))}"></div></div>
     <div class="actions"><button class="btn" onclick="print()">Imprimer le certificat</button><span class="help" style="margin:0">Choisissez l'orientation paysage et les marges « aucune ».</span></div></div></main></div>
@@ -353,7 +359,7 @@ function renderCertificat() {
 /* ---------------- tableau de bord ---------------- */
 function renderDashboard() {
   document.title = "Tableau de bord — La Noblesse du Cœur";
-  app().innerHTML = header() + BANDEAU("plateau", `<span class="eyebrow" style="--k:0">Accès réservé</span><h1>Tableau de <em>bord</em></h1><p class="lead" style="--k:1">Les résultats du programme et les inscriptions de l'ONG, mis à jour à chaque fiche envoyée.</p>`, true) + `
+  app().innerHTML = header("equipe") + BANDEAU("plateau", `<span class="eyebrow" style="--k:0">Accès réservé</span><h1>Tableau de <em>bord</em></h1><p class="lead" style="--k:1">Les résultats du programme et les inscriptions de l'ONG, mis à jour à chaque fiche envoyée.</p>`, true) + `
   <main class="wrap" id="dash" tabindex="-1"></main>` + FOOT;
   let saved = ""; try { saved = sessionStorage.getItem("ndc_code") || ""; } catch (e) {}
   if (saved) load(saved); else montrerLogin();
@@ -395,9 +401,131 @@ async function load(code, btn) {
   <h2 class="sec">Par établissement</h2><div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Élèves</th><th>Moy. avant</th><th>Moy. après</th><th>Éligibles</th></tr>${P.parEtab.map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td><td>${e.elig}</td></tr>`).join("")}</table></div>
   <h2 class="sec">Tous les élèves</h2><div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Avant</th><th>Après</th><th>Ens. après</th><th>Suivi fin</th><th>Incident</th><th>Critères</th></tr>${P.eleves.map(e => `<tr><td>${esc(e.nom)}</td><td>${esc(e.etab)}</td><td>${esc(e.classe)}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td><td>${n2(e.ensAp)}</td><td>${n2(e.fin)}</td><td>${e.incident == null ? "—" : e.incident ? "Oui" : "Non"}</td><td class="${e.crit >= 3 ? "yes" : ""}">${e.crit}/4</td></tr>`).join("")}</table></div>
   <h2 class="sec">Campagne en milieu scolaire — inscriptions des élèves</h2><div class="kpis">${kpi(I.total, "Élèves inscrits")}</div>
-  <div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Groupe</th><th>Inscrits</th></tr>${I.parGroupe.map(x => `<tr><td>${esc(x.etab)}</td><td>${esc(x.groupe)}</td><td><b>${x.n}</b></td></tr>`).join("") || '<tr><td colspan="3">Aucune inscription pour le moment.</td></tr>'}</table></div>
+  <div class="panneau"><table class="tb"><tr><th>Établissement</th>${I.parGroupe.some(x => x.groupe) ? "<th>Groupe</th>" : ""}<th>Inscrits</th></tr>${I.parGroupe.map(x => `<tr><td>${esc(x.etab)}</td>${I.parGroupe.some(g => g.groupe) ? `<td>${esc(x.groupe)}</td>` : ""}<td><b>${x.n}</b></td></tr>`).join("") || '<tr><td colspan="3">Aucune inscription pour le moment.</td></tr>'}</table></div>
+  ${sectionsResultats(d, fr, kpi, pct, n2)}
   <h2 class="sec">ONG Lueur d'Espoir — bénéficiaires</h2><div class="kpis">${kpi(O.total, "Bénéficiaires inscrits")}</div>
   ${[["Type de handicap", O.handicap], ["Besoins identifiés", O.besoins], ["Sexe", O.sexe], ["Commune / quartier", O.commune]].map(([t, r]) => `<div class="panneau"><b>${t}</b><table class="tb">${bars(r) || "<tr><td>—</td></tr>"}</table></div>`).join("")}`;
   $("#rf").onclick = () => load(code, $("#rf"));
+  const ex = $("#export-csv"); if (ex) ex.onclick = () => exporterCsv(d.personnes || []);
   window.UI && UI.revele($("#dash"));
+}
+
+/* Examen final, quiz d'entraînement et liste de toutes les personnes (élèves et participants), avec export pour Excel */
+function sectionsResultats(d, fr, kpi, pct, n2) {
+  const X = d.examens || { copies: 0, liste: [], parEtab: [] }, Q = d.quiz || { tentatives: 0, personnes: 0, parModule: [] }, L = d.personnes || [];
+  const oui = b => b === true ? '<span class="yes">Réussi</span>' : b === false ? "Non" : "—";
+  return `<h2 class="sec">Examen final noté</h2><div class="kpis">${kpi(X.copies, "Copies reçues")}${kpi(pct(X.moyennePct), "Note moyenne")}${kpi(X.reussis ?? 0, "Réussites", "seuil provisoire : " + (X.seuilPct ?? 70) + " %")}${kpi(pct(X.pctReussite), "Taux de réussite")}</div>
+  <div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Copies</th><th>Moyenne</th><th>Réussites</th><th>Certificats (max ${X.nbCertificats ?? 150})</th></tr>${(X.parEtab || []).map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${pct(e.moyennePct)}</td><td>${e.reussis}</td><td><b>${e.certificats}</b></td></tr>`).join("") || '<tr><td colspan="5">Aucune copie pour le moment.</td></tr>'}</table></div>
+  <div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Note</th><th>Axe 1</th><th>Axe 2</th><th></th></tr>${(X.liste || []).map(x => `<tr><td><b>${esc(x.nom)} ${esc(x.prenom)}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td>${x.note} / ${x.total}</td><td>${x.axe1}</td><td>${x.axe2}</td><td>${oui(x.reussi)}</td></tr>`).join("") || '<tr><td colspan="7">Aucune copie.</td></tr>'}</table></div>
+  <h2 class="sec">Quiz d'entraînement</h2><div class="kpis">${kpi(Q.tentatives, "Essais envoyés")}${kpi(Q.personnes, "Personnes ayant joué")}</div>
+  <div class="panneau"><table class="tb"><tr><th>Module</th><th>Essais</th><th>Score moyen</th></tr>${(Q.parModule || []).map(m => `<tr><td>${esc(m.titre)}</td><td>${m.n}</td><td>${pct(m.moyennePct)}</td></tr>`).join("") || '<tr><td colspan="3">Aucun essai pour le moment.</td></tr>'}</table></div>
+  <h2 class="sec">Toutes les personnes (${L.length})</h2><div class="actions" style="margin:0 0 12px"><button class="btn" id="export-csv" type="button">Télécharger pour Excel (CSV)</button></div>
+  <div class="panneau"><table class="tb"><tr><th>Profil</th><th>Nom</th><th>Établissement ou formation</th><th>Classe</th><th>Quiz (essais, moy.)</th><th>Examen</th></tr>${L.map(p => `<tr><td>${esc(p.type)}</td><td><b>${esc((p.nom + " " + p.prenom).trim())}</b></td><td>${esc(p.etab || p.formation)}</td><td>${esc(p.classe)}</td><td>${p.quizEssais ? p.quizEssais + " · " + p.quizMoy + " %" : "—"}</td><td>${p.examPct == null ? "—" : fr(p.examPct) + " % " + (p.examReussi ? "✓" : "")}</td></tr>`).join("") || '<tr><td colspan="6">Personne pour le moment.</td></tr>'}</table></div>`;
+}
+function exporterCsv(L) {
+  const cell = v => { v = String(v ?? ""); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };   // aucune cellule ne s'exécute comme une formule dans Excel
+  const lignes = [["Profil", "Nom", "Prénoms", "Établissement", "Classe", "Formation", "Quiz : essais", "Quiz : moyenne %", "Examen %", "Examen réussi"], ...L.map(p => [p.type, p.nom, p.prenom, p.etab, p.classe, p.formation, p.quizEssais, p.quizMoy ?? "", p.examPct ?? "", p.examReussi == null ? "" : p.examReussi ? "oui" : "non"])];
+  const blob = new Blob(["﻿" + lignes.map(l => l.map(cell).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "noblesse-du-coeur-resultats.csv" });
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* =====================================================================================================
+   Parcours de la personne : accueil public → inscription (profil) → mon espace → quiz et examen
+   ===================================================================================================== */
+const profilDepuis = (type, d) => type === "eleve"
+  ? { type, etab: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe }
+  : { type, nom: d.nom, tel: d.tel, formation: d.formation || "", mode: d.mode || "" };
+const prenomDe = p => String((p && (p.prenom || p.nom)) || "").trim().split(/\s+/)[0];
+const ICONE = {
+  eleve: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 8 4 18l20 10 20-10L24 8z"/><path d="M12 24v10c0 3 6 6 12 6s12-3 12-6V24"/><path d="M44 18v12"/></svg>',
+  participant: '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="17" cy="16" r="6"/><circle cx="33" cy="18" r="5"/><path d="M5 38c0-8 5-13 12-13s12 5 12 13"/><path d="M29 27c6-1 14 2 14 11"/></svg>'
+};
+const CARTES_PROFIL = `<div class="profils">
+  <a class="carte-profil" href="commencer.html?p=eleve" style="--k:0"><span class="pic">${ICONE.eleve}</span><h3>Je suis <em>élève</em></h3>
+    <p>Lycée Mamie Faitai ou lycée de Garçons Gnaléga. Tu choisis ton école, puis tu accèdes à tes quiz et à ton examen final.</p><span class="aller">M'inscrire comme élève</span></a>
+  <a class="carte-profil" href="commencer.html?p=participant" style="--k:1"><span class="pic">${ICONE.participant}</span><h3>Je suis <em>participant(e)</em></h3>
+    <p>Tu suis une formation de BMT Green Academy, sur place ou à distance. Tu accèdes aux évaluations de ta formation.</p><span class="aller">M'inscrire comme participant</span></a></div>`;
+
+/* installation sur l'écran d'accueil (Android / ordinateur : bouton natif ; iPhone : le mode d'emploi) */
+let inviteInstall = null;
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); inviteInstall = e; document.querySelectorAll(".installer").forEach(b => { b.hidden = false; }); });
+addEventListener("appinstalled", () => document.querySelectorAll(".installer").forEach(b => { b.hidden = true; }));
+const INSTALLER = `<button type="button" class="btn sec installer" hidden>Installer l'application</button>`;
+function brancherInstaller() { document.querySelectorAll(".installer").forEach(b => { b.hidden = !inviteInstall; b.onclick = async () => { if (!inviteInstall) return; inviteInstall.prompt(); await inviteInstall.userChoice.catch(() => {}); inviteInstall = null; b.hidden = true; }; }); }
+
+/* ---------------- accueil public ---------------- */
+function renderAccueil() {
+  document.title = "La Noblesse du Cœur — évaluations en ligne";
+  const p = profil(), nom = prenomDe(p);
+  app().innerHTML = header() + BANDEAU("basilique", `
+    <span class="eyebrow" style="--k:0">Évaluations en ligne · Bingerville 2026-2027</span>
+    <h1>La Noblesse du <em>Cœur</em></h1>
+    <p class="lead" style="--k:1">${p ? `Content de te revoir, ${esc(nom)}. Retrouve tes quiz, ton examen et tes résultats.` : "Inscris-toi, entraîne-toi avec les quiz, passe ton examen final et suis tes résultats. Tout se fait sur téléphone, en quelques minutes."}</p>
+    <div class="cta" style="--k:2">${p ? '<a class="btn or" href="espace.html">Entrer dans mon espace</a>' : '<a class="btn or" href="commencer.html">Commencer</a>'}<a class="btn clair" href="#parcours">Comment ça marche</a></div>`) + `
+  <main id="contenu" tabindex="-1">${DEMO() ? `<div class="wrap">${DEMO()}</div>` : ""}
+    <section class="bande" id="commencer"><div class="wrap"><div class="etape-tete"><div><h2>${p ? "Ton <em>espace</em>" : "Qui <em>es-tu</em> ?"}</h2><p>${p ? "Tu es déjà inscrit(e) sur cet appareil." : "Choisis ton profil : le site te montrera uniquement ce qui te concerne."}</p></div></div>
+      ${p ? `<div class="actions"><a class="btn" href="espace.html">Entrer dans mon espace</a><a class="btn sec" href="commencer.html">Ce n'est pas moi</a>${INSTALLER}</div>` : CARTES_PROFIL}</div></section>
+    <section class="bande sable" id="parcours"><div class="wrap"><div class="etape-tete"><div><h2>Ton parcours en <em>trois étapes</em></h2><p>Simple, rapide, et tes résultats arrivent directement à l'équipe du programme.</p></div></div>
+      <ol class="pas">
+        <li style="--k:0"><i>1</i><h3>Je m'inscris</h3><p>Mon école ou ma formation, mon nom : une minute suffit.</p></li>
+        <li style="--k:1"><i>2</i><h3>Je m'entraîne</h3><p>Des quiz module par module, avec la correction expliquée après chaque question.</p></li>
+        <li style="--k:2"><i>3</i><h3>Je passe l'examen</h3><p>L'examen final est corrigé automatiquement. Ma copie est transmise à la direction.</p></li></ol>
+      <div class="actions" style="justify-content:center">${INSTALLER}</div></div></section>
+  </main>` + PARTENAIRES + FOOT;
+  brancherInstaller();
+  UIok();
+}
+
+/* ---------------- commencer : choix du profil puis inscription ---------------- */
+function renderCommencer() {
+  const q = new URLSearchParams(location.search).get("p"), cle = { eleve: "eleve_inscr", participant: "inscription" }[q];
+  if (cle) { renderForm(cle); return; }
+  document.title = "Commencer — La Noblesse du Cœur";
+  const p = profil();
+  app().innerHTML = header() + BANDEAU("plateau", `<span class="eyebrow" style="--k:0">Étape 1 sur 2</span><h1>Qui <em>es-tu</em> ?</h1><p class="lead" style="--k:1">Choisis ton profil. Le site te montrera ensuite uniquement les quiz et les évaluations qui te concernent.</p>`, true) + `
+  <main class="wrap" id="contenu" tabindex="-1">
+    ${p ? `<div class="ok" style="margin-top:28px"><b>Tu es inscrit(e) sur cet appareil : ${esc(prenomDe(p))}.</b> <a href="espace.html">Aller à mon espace</a>. Pour inscrire quelqu'un d'autre, choisis un profil ci-dessous.</div>` : ""}
+    <div style="margin:28px 0 8px">${CARTES_PROFIL}</div></main>` + FOOT;
+  UIok();
+}
+
+/* ---------------- message de bienvenue après l'inscription ---------------- */
+function bienvenue(form, type, data, res) {
+  const nom = prenomDe(profilDepuis(type, data)), n = 22;
+  const feu = UI_REDUIT() ? "" : Array.from({ length: n }, (_, k) => { const a = (k / n) * 2 * Math.PI + Math.random() * .3, r = 90 + Math.random() * 110; return `<i class="etincelle" style="--k:${k};--dx:${Math.round(Math.cos(a) * r)}px;--dy:${Math.round(Math.sin(a) * r)}px"></i>`; }).join("");
+  form.innerHTML = `<div class="bloc no-rv bienvenue"><div class="feu" aria-hidden="true">${feu}</div>
+    <svg class="coche" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="25"/><path d="M14 27l8 8 16-17"/></svg>
+    <p class="eyebrow">${res.demo ? "Mode démonstration : non enregistré" : "Inscription enregistrée"}</p>
+    <h2 tabindex="-1" id="merci">Bienvenue, <em>${esc(nom)}</em> !</h2>
+    <p class="lead-b">${type === "eleve" ? "Ton espace est prêt : quiz d'entraînement et examen final de La Noblesse du Cœur." : "Ton espace est prêt : retrouve ici les évaluations de ta formation."}</p>
+    ${res.numero ? `<p>Ton numéro de dossier : <b>${esc(res.numero)}</b>. Garde-le précieusement.</p>` : ""}
+    <div class="actions" style="justify-content:center"><a class="btn or" href="espace.html">Entrer dans mon espace</a></div></div>`;
+  jauge(1); const pc = $("#pc"); if (pc) pc.textContent = "100 %";
+  scrollTo({ top: 0, behavior: UI_REDUIT() ? "auto" : "smooth" });
+  const m = $("#merci"); if (m) m.focus({ preventScroll: true });
+}
+
+/* ---------------- mon espace : ce que voit la personne dépend de son profil ---------------- */
+function renderEspace() {
+  const p = profil();
+  if (!p) { location.replace("commencer.html"); return; }
+  document.title = "Mon espace — La Noblesse du Cœur";
+  const ac = acces(p), best = store.get("ndc_quiz", {}), mods = typeof QUIZ !== "undefined" ? QUIZ.flatMap(a => a.modules) : [];
+  const faits = mods.filter(m => best[m.id] != null).length;
+  const carte = (href, t, d, img) => `<a class="item" href="${href}"><span class="vignette" style="--v:url(img/${img}-thumb.webp)"></span><span class="txt"><b>${esc(t)}</b><span>${esc(d)}</span></span><span class="chev" aria-hidden="true"></span></a>`;
+  const ident = p.type === "eleve" ? `${esc(p.etab)} · ${esc(p.classe)}` : esc(String(p.formation || "Participant(e) aux formations"));
+  app().innerHTML = header() + BANDEAU("savane", `<span class="eyebrow" style="--k:0">Mon espace</span><h1>Bonjour, <em>${esc(prenomDe(p))}</em></h1><p class="lead" style="--k:1">${ident}</p>`, true) + `
+  <main class="wrap" id="contenu" tabindex="-1">
+    <h2 class="sec">${ac.quiz || ac.examen ? "À faire" : "Tes formations"}</h2>
+    <div class="liste">
+      ${ac.quiz ? carte("quiz.html", "Quiz d'entraînement", mods.length ? `${faits} module${faits > 1 ? "s" : ""} essayé${faits > 1 ? "s" : ""} sur ${mods.length}. La correction s'affiche après chaque question.` : "Réviser les modules, avec la correction après chaque question.", "plateau") : ""}
+      ${ac.examen ? carte("examen.html", "Examen final noté", "20 questions, une seule tentative. Ta copie est corrigée automatiquement et transmise à la direction.", "basilique") : ""}
+      ${!ac.quiz && !ac.examen ? `<div class="item"><span class="txt"><b>Évaluations de ta formation</b><span>L'équipe BMT publiera ici les quiz et les évaluations de ta formation. Reviens bientôt.</span></span></div>` : ""}
+    </div>
+    <div class="actions" style="margin-top:22px">${INSTALLER}<button type="button" class="btn sec" id="autre">Ce n'est pas moi</button></div>
+    <p class="help">Astuce : pour garder le site sur ton téléphone, ouvre le menu du navigateur et choisis « Ajouter à l'écran d'accueil ».</p></main>` + FOOT;
+  $("#autre").onclick = () => { try { localStorage.removeItem("ndc_profil"); } catch (e) {} location.href = "commencer.html"; };
+  brancherInstaller();
+  UIok();
 }

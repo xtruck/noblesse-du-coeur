@@ -7,7 +7,11 @@ const melanger = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { 
 const tousModules = () => QUIZ.flatMap(a => a.modules.map(m => ({ ...m, axe: a.titre })));
 const sansMouvement = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/* Les quiz sont réservés aux personnes inscrites dont le profil y donne accès (voir acces() dans app.js). */
 function renderQuiz() {
+  const pr = profil();
+  if (!pr) { location.replace("commencer.html"); return; }
+  if (!acces(pr).quiz) { location.replace("espace.html"); return; }
   const m = tousModules().find(x => x.id === new URLSearchParams(location.search).get("m"));
   m ? jouerQuiz(m) : menuQuiz();
 }
@@ -18,7 +22,7 @@ function menuQuiz() {
   const essayes = mods.filter(m => best[m.id] != null), moyenne = essayes.length ? Math.round(essayes.reduce((s, m) => s + best[m.id], 0) / essayes.length) : null;
   const kpi = (v, l) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`;
   app().innerHTML = header() + BANDEAU("savane", `<span class="eyebrow" style="--k:0">Entraînement · sans note</span><h1>Quiz d'<em>entraînement</em></h1>
-    <p class="lead" style="--k:1">Teste tes connaissances, module par module. La correction s'affiche après chaque question. Ces quiz sont un entraînement : ils ne comptent pas pour l'examen final.</p>`, true) + `
+    <p class="lead" style="--k:1">Teste tes connaissances, module par module. La correction s'affiche après chaque question. Ces quiz sont un entraînement : ils ne comptent pas pour l'examen final, mais ton score est transmis à l'équipe pour suivre ta progression.</p>`, true) + `
   <main id="contenu" tabindex="-1">
     <section class="bande court"><div class="wrap"><div class="kpis">${kpi(essayes.length + " / " + mods.length, "Modules essayés")}${kpi(moyenne == null ? "—" : moyenne + " %", "Score moyen (meilleurs essais)")}</div></div></section>
     ${QUIZ.map((a, i) => `<section class="etape bande${i % 2 ? " sable" : ""}"><div class="wrap"><div class="etape-tete"><div><h2>${esc(a.titre)}</h2></div></div><div class="liste">${a.modules.map(m => `
@@ -26,6 +30,15 @@ function menuQuiz() {
       <span class="txt"><b>${esc(m.titre)}</b><span>${m.questions.length} questions${best[m.id] != null ? " · meilleur score : " + best[m.id] + " %" : " · pas encore essayé"}</span></span><span class="chev" aria-hidden="true"></span></a>`).join("")}</div></div></section>`).join("")}
   </main>` + FOOT;
   UIok();
+}
+
+/* Envoie le score à l'équipe (une ligne par essai). Si le réseau manque, le quiz reste utilisable : l'envoi est simplement ignoré. */
+async function envoyerScore(m, bon, total, pct) {
+  const pr = profil(); if (!pr || notConfigured()) return;
+  const id = pr.type === "eleve" ? { etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe } : { nom: pr.nom, tel: pr.tel };
+  const res = await appelApi({ form: "quiz", profil: pr.type, ...id, module: m.id, titre: m.titre, score: bon, total, pct });
+  const z = document.getElementById("zone"), note = z && z.querySelector(".ok.centre"); if (!note) return;
+  note.insertAdjacentHTML("beforeend", `<p class="help" role="status">${res.ok ? "Résultat transmis à l'équipe." : "Résultat non transmis (réseau). Ton score reste noté sur cet appareil."}</p>`);
 }
 
 function jouerQuiz(m) {
@@ -68,6 +81,7 @@ function jouerQuiz(m) {
     const best = store.get("ndc_quiz", {}), record = best[m.id] != null && pct > best[m.id];
     if (best[m.id] == null || pct > best[m.id]) { best[m.id] = pct; store.set("ndc_quiz", best); }
     jauge(1); $("#pc").textContent = "Terminé";
+    envoyerScore(m, bon, Q.length, pct);
     // étincelles dorées autour de l'anneau quand le module est maîtrisé
     const etincelles = reussi ? Array.from({ length: 18 }, (_, n) => { const a = (n / 18) * 2 * Math.PI + Math.random() * .3, r = 78 + Math.random() * 46; return `<i class="etincelle" style="--k:${n};--dx:${Math.round(Math.cos(a) * r)}px;--dy:${Math.round(Math.sin(a) * r)}px"></i>`; }).join("") : "";
     zone.innerHTML = `<div class="bloc no-rv entre"><div class="ok centre">
