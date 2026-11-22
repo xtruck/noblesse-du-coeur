@@ -5,5 +5,5 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzu85-dWgiyb2qbYG___ppm
 /* Liens vers les autres plateformes. Laisser vide ("") pour masquer un lien. */
 const LIENS = {
   academie: "https://xtruck149.github.io/bmtacademy/",   // plateforme académique BMT Green Academy (formations, catalogue)
-  ong: "",                                                // site de l'ONG Lueur d'Espoir (à renseigner : adresse complète, https://…)
+  ong: "https://xtruck149.github.io/bmtacademy/engagement/lueur-despoir.html",   // page de l'ONG Lueur d'Espoir (coordonnées, dons) sur le site de BMT Green Academy
 };
