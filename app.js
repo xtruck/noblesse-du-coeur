@@ -98,7 +98,7 @@ const ETAPES = [
     ["@espace.html", "", "Mon espace (parcours de l'élève)", "Inscription, évaluation initiale, Axe 1, Axe 2, examens finaux, évaluation finale."],
     ["@examen.html", "", "Examens finaux (Axe 1 et Axe 2)", "15 questions pour l'Axe 1 (dont la sensibilisation) et 10 pour l'Axe 2, corrigées par le serveur : une seule tentative par axe, note transmise à la direction."]] },
   { id: "pilotage", court: "Résultats", t: "*Résultats*", s: "Suivre le programme en direct.", items: [
-    ["@dashboard.html", "", "Tableau de bord", "Inscrits, progrès, élèves éligibles et bénéficiaires.", true]] },
+    ["@dashboard.html", "", "Tableau de bord", "Inscrits, progrès, examens, distinctions et bénéficiaires.", true]] },
 ];
 const href = (k, ph) => k.startsWith("@") ? k.slice(1) : `form.html?f=${k}${ph ? "&" + (ph.includes("=") ? ph : "phase=" + ph) : ""}`;   // ph = "avant" / "apres", ou un paramètre complet (ex. « lycee=mamie »)
 const vignette = k => (FORMS[k] || {}).img || (k.includes("certificat") ? "basilique" : "plateau");
@@ -405,10 +405,10 @@ async function load(code, btn) {
     ${kpi(n2(P.suiviDebut) + " → " + n2(P.suiviFin), "Compétences /5", "début → fin")}
     ${kpi(pct(P.pctSansIncident), "Élèves sans incident", P.sansIncident + " / " + P.suivis)}
     ${kpi(P.incAvant + " → " + P.incApres, "Incidents (registres)", P.incAvant ? pct(P.reductionInc) + " de baisse" : "")}
-    ${kpi(P.eligibles.length, "Élèves éligibles", pct(P.pctEligibles) + " des élèves suivis")}
+    ${kpi((d.examens || {}).retenus ?? 0, "Distinction Ambassadeur Junior", "80 % et plus, parmi les " + ((d.examens || {}).nbCertificats ?? 200) + " meilleurs")}
     ${kpi(A.retenus ?? 0, "Élèves retenus (listes officielles)")}</div>
-  ${dbl}<h2 class="sec">Élèves éligibles (calcul automatique)</h2><div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Critères</th><th></th></tr>${P.eligibles.map(e => `<tr><td><b>${esc(e.nom)}</b></td><td>${esc(e.etab)}</td><td>${esc(e.classe)}</td><td class="yes">${e.crit}/4</td><td>${cert(e)}</td></tr>`).join("") || '<tr><td colspan="5">Aucun pour le moment.</td></tr>'}</table></div>
-  <h2 class="sec">Par établissement</h2><div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Élèves</th><th>Moy. avant</th><th>Moy. après</th><th>Éligibles</th></tr>${P.parEtab.map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td><td>${e.elig}</td></tr>`).join("")}</table></div>
+  ${dbl}<h2 class="sec">Distinction : les meilleurs résultats aux examens finaux</h2><p class="help" style="margin:0 0 10px">Règle du kit : au moins 80/100 aux deux examens, dans la limite des 200 meilleurs ; seuil de validation 70/100. Les égalités à la dernière place sont à départager par la coordination.</p><div class="panneau"><table class="tb"><tr><th>Rang</th><th>Élève</th><th>Établissement</th><th>Classe</th><th>Note</th><th></th></tr>${((d.examens || {}).liste || []).filter(x => x.retenu && x.distinction).map(x => `<tr><td>${x.rang}</td><td><b>${esc((x.nom + " " + x.prenom).trim())}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td class="yes">${fr(x.pct)} %</td><td>${cert({ nom: (x.nom + " " + x.prenom).trim() })}</td></tr>`).join("") || '<tr><td colspan="6">Aucun pour le moment.</td></tr>'}</table></div>
+  <h2 class="sec">Par établissement</h2><div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Élèves</th><th>Moy. avant</th><th>Moy. après</th></tr>${P.parEtab.map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td></tr>`).join("")}</table></div>
   <h2 class="sec">Tous les élèves</h2><div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Avant</th><th>Après</th><th>Ens. après</th><th>Suivi fin</th><th>Incident</th><th>Critères</th></tr>${P.eleves.map(e => `<tr><td>${esc(e.nom)}</td><td>${esc(e.etab)}</td><td>${esc(e.classe)}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td><td>${n2(e.ensAp)}</td><td>${n2(e.fin)}</td><td>${e.incident == null ? "—" : e.incident ? "Oui" : "Non"}</td><td class="${e.crit >= 3 ? "yes" : ""}">${e.crit}/4</td></tr>`).join("")}</table></div>
   <h2 class="sec">Campagne en milieu scolaire — inscriptions des élèves</h2><div class="kpis">${kpi(I.total, "Élèves inscrits")}</div>
   <div class="panneau"><table class="tb"><tr><th>Établissement</th>${I.parGroupe.some(x => x.groupe) ? "<th>Groupe</th>" : ""}<th>Inscrits</th></tr>${I.parGroupe.map(x => `<tr><td>${esc(x.etab)}</td>${I.parGroupe.some(g => g.groupe) ? `<td>${esc(x.groupe)}</td>` : ""}<td><b>${x.n}</b></td></tr>`).join("") || '<tr><td colspan="3">Aucune inscription pour le moment.</td></tr>'}</table></div>
@@ -606,7 +606,7 @@ const IMG_MODULE = {
 /* ---------- bibliothèque : cours, guides, fiches pratiques, carnets (PDF) ---------- */
 const BIBLIO = [
   { id: "axe1", axe: "Axe 1 · L'art de la paix", intro: "Savoir-vivre, politesse, civisme et vivre ensemble : les 4 modules de l'Axe 1.", docs: [
-    ["axe1-art-de-la-paix", "Le cours : L'art de la paix", "Les 4 modules de l'Axe 1.", "25 Mo"],
+    ["axe1-art-de-la-paix", "Le cours : L'art de la paix", "Les 4 modules de l'Axe 1.", "23 Mo"],
     ["axe1-guide-ambassadeur", "Guide : L'art de la dignité", "Guide de l'Ambassadeur de la Paix, de la Fraternité et de la Dignité.", "13 Mo"],
     ["axe1-preserver-sa-vie", "Sensibilisation : Préserver sa vie", "Document de sensibilisation, complément du cours.", "4 Mo"]] },
   { id: "axe2", axe: "Axe 2 · L'art de l'impact", intro: "Influence, éthique, réseaux sociaux et liberté d'expression : les 6 modules de l'Axe 2.", docs: [
@@ -699,8 +699,9 @@ function renderOng() {
       ${image("ong-presentation", 906, 1080, "Présentation de l'ONG Lueur d'Espoir : qui sommes-nous, vision, mission, valeurs et engagement")}
       ${image("ong-partenariats", 906, 1080, "Partenariats, engagement et devise de l'ONG Lueur d'Espoir")}</div>
     ${presse.length ? `<h2 class="sec">Dans la presse</h2><div class="liste">${presse.map(x => `<a class="item" href="${esc(x.u)}" target="_blank" rel="noopener"><span class="vignette pdf" aria-hidden="true"><b>WEB</b></span><span class="txt"><b>${esc(x.t)}</b><span>${esc(x.s || "")}</span></span><span class="chev" aria-hidden="true"></span></a>`).join("")}</div>` : ""}
-    <section class="don-ong" aria-labelledby="don-t"><h2 id="don-t">Faire un <em>don</em></h2><p>Soutenir la dignité, financer l'éducation, agir avec humanité. Écris-nous sur WhatsApp : l'ONG te répond.</p>
-      <a class="btn or" href="${don}" target="_blank" rel="noopener">Faire un don sur WhatsApp</a></section>
+    <section class="don-ong" aria-labelledby="don-t"><h2 id="don-t" class="sr-seul">Faire un don</h2>
+      <a class="don-visuel" href="${don}" target="_blank" rel="noopener" aria-label="Faire un don à l'ONG Lueur d'Espoir, sur WhatsApp"><img src="img/ong-don.webp" width="1280" height="853" loading="lazy" alt="Faire un don : soutenir la dignité, financer l'éducation, agir avec humanité. Donner à Lueur d'Espoir, c'est transformer la solidarité en action durable."></a>
+      <p>Écris-nous sur WhatsApp : l'ONG te répond.</p><a class="btn or" href="${don}" target="_blank" rel="noopener">Faire un don sur WhatsApp</a></section>
     <div class="actions" style="margin-top:26px"><a class="btn sec" href="index.html">Retour à La Noblesse du Cœur</a></div></main>` + FOOT_ONG;
   UIok();
 }

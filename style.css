@@ -748,10 +748,15 @@ button[disabled].btn{opacity:.55;cursor:not-allowed}
 .restants a{color:var(--vert2);font-weight:700}
 
 /* accès à la plateforme : version fermée, don de l'ONG */
-.btn-image.ferme{cursor:not-allowed;filter:grayscale(.55);opacity:.75}
+.btn-image.ferme{cursor:default}   /* fermé = non cliquable, mais gardé en pleines couleurs : orange et contour or */
 .btn-image.ferme:hover{transform:none}
 .bientot{margin:0;font:800 13px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--gris)}
 .don-ong{margin:34px 0 4px;padding:26px 22px;border-radius:var(--r);background:linear-gradient(135deg,var(--or-pale),#fff);border:1.5px solid var(--or-filet);text-align:center}
 .don-ong h2{font:300 clamp(28px,6vw,40px)/1.1 var(--serif);color:var(--vert);margin:0 0 8px}
 .don-ong h2 em{color:var(--or-texte)}
 .don-ong p{margin:0 auto 18px;max-width:46ch;color:var(--gris)}
+.sr-seul{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.don-visuel{display:block;margin:0 auto 18px;max-width:900px}
+.don-visuel img{display:block;width:100%;height:auto;border-radius:var(--r);box-shadow:var(--ombre-haute);border:1px solid var(--or-filet);transition:transform var(--d-normal) var(--ease)}
+.don-visuel:hover img{transform:translateY(-4px)}
+
