@@ -22,11 +22,22 @@ function renderExamen() {
 
   const deja = examensFaits()["axe" + axe];
   if (deja && deja.cle === cleLocale(pr)) { termine(true); UIok(); return; }
+  const prog = axeProgres("axe" + axe);
+  if (!prog.pret) { verrou(); UIok(); return; }
   intro(); UIok();
+
+  /* l'examen reste fermé tant que toutes les auto-évaluations de l'axe ne sont pas validées */
+  function verrou() {
+    zone.innerHTML = `<div class="bloc no-rv entre"><h2>L'examen s'ouvre bientôt</h2>
+      <p>Pour passer l'examen final de l'${info.nom}, valide d'abord <b>toutes les auto-évaluations</b> de l'axe, avec au moins <b>${SEUIL_ACCES_EXAMEN} %</b> à chacune. Tu peux les refaire autant que tu veux.</p>
+      <p class="help">Il te reste ${prog.restants.length} module${prog.restants.length > 1 ? "s" : ""} à valider :</p>
+      <ul class="restants">${prog.restants.map(m => `<li><a href="parcours.html?m=${esc(m.id)}">${esc(m.titre.replace(/^Module \d+ · /, ""))}</a></li>`).join("")}</ul>
+      <div class="actions"><a class="btn or" href="parcours.html?a=axe${axe}">Aller à l'${info.nom}</a><a class="btn sec" href="espace.html">Retour à mon espace</a></div></div>`;
+  }
 
   function intro() {
     zone.innerHTML = `<div class="bloc no-rv entre"><h2>Avant de commencer</h2>
-      <ul class="regles"><li><b>10 questions</b> sur l'${info.nom} : ${esc(info.titre.toLowerCase())}.</li>
+      <ul class="regles"><li><b>${NB_QUESTIONS_EXAMEN[axe]} questions</b> sur l'${info.nom} : ${esc(info.titre.toLowerCase())}${axe === 1 ? ", sensibilisation comprise" : ""}.</li>
       <li><b>Une seule tentative.</b> Une fois la copie envoyée, elle ne peut plus être refaite.</li>
       <li>Tu peux revenir sur une question avant d'envoyer. Une question sans réponse ne rapporte pas de point.</li>
       <li>La note est calculée par le serveur et transmise à la direction du programme.</li></ul>
@@ -101,9 +112,9 @@ function renderExamen() {
 /* Choix de l'examen : Axe 1 ou Axe 2, avec de grands titres pour les distinguer */
 function choixExamen(pr) {
   document.title = "Examen final — La Noblesse du Cœur";
-  const F = examensFaits(), carte = n => { const info = AXES_EXAMEN[n], fait = F["axe" + n];
-    return `<a class="carte-profil carte-examen" href="examen.html?axe=${n}" style="--k:${n - 1}"><span class="cont-eyebrow">Examen final · ${info.nom}</span><h3>${titreHtml(info.court)}</h3>
-      <p>${fait ? "Ta copie est envoyée à la direction." : "10 questions, une seule tentative, corrigée automatiquement."}</p><span class="aller">${fait ? "Revoir" : "Passer l'examen"}</span></a>`; };
+  const F = examensFaits(), carte = n => { const info = AXES_EXAMEN[n], fait = F["axe" + n], prog = axeProgres("axe" + n), ferme = !fait && !prog.pret;
+    return `<a class="carte-profil carte-examen${ferme ? " ferme" : ""}" href="examen.html?axe=${n}" style="--k:${n - 1}"><span class="cont-eyebrow">Examen final · ${info.nom}</span><h3>${titreHtml(info.court)}</h3>
+      <p>${fait ? "Ta copie est envoyée à la direction." : ferme ? "À débloquer : valide d'abord toutes les auto-évaluations de l'axe (" + prog.restants.length + " restante" + (prog.restants.length > 1 ? "s" : "") + ", " + SEUIL_ACCES_EXAMEN + " % minimum)." : NB_QUESTIONS_EXAMEN[n] + " questions, une seule tentative, corrigée automatiquement."}</p><span class="aller">${fait ? "Revoir" : ferme ? "Voir ce qui reste" : "Passer l'examen"}</span></a>`; };
   app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Examen final</span><h1>Tes <em>examens</em> finaux</h1>
     <p>Un examen par axe. Passe-les quand tu te sens prêt(e) : une seule tentative pour chacun.</p></div></div></section>
   <main class="wrap" id="contenu" tabindex="-1"><div class="profils">${carte(1)}${carte(2)}</div>

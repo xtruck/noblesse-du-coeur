@@ -2,6 +2,8 @@
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const BASE = location.href.replace(/[^/]*([?#].*)?$/, "");
+const externe = u => /^https?:/.test(u);                                   // adresse d'un autre site : s'ouvre dans un nouvel onglet ; sinon, page de cette application
+const cibleLien = u => externe(u) ? ' target="_blank" rel="noopener"' : "";
 const notConfigured = () => !API_URL;
 const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
@@ -61,7 +63,7 @@ const PARTENAIRES = `<section class="bande partenaires" aria-labelledby="deux-or
   <p class="devise">Respect, dignité, leadership, paix.</p></div></section>`;
 const FOOT = `<footer><div class="wrap">
   <div class="a-propos-pied"><div class="ronds"><img src="img/logo_bmt-160.webp" width="167" height="160" alt="BMT Green Academy" loading="lazy"><img src="img/logo_lueur-160.webp" width="160" height="160" alt="ONG Lueur d'Espoir" loading="lazy"></div><b>La Noblesse du <em>Cœur</em></b>Respect, dignité, leadership, paix.<br>Programme d'éducation citoyenne, Côte d'Ivoire.</div>
-  <div><h4>Élèves et participants</h4><a href="commencer.html">Commencer : s'inscrire</a><a href="espace.html">Mon espace</a>${LIENS.academie ? `<a href="${LIENS.academie}" target="_blank" rel="noopener">Plateforme éducative</a>` : ""}${LIENS.ong ? `<a href="${LIENS.ong}" target="_blank" rel="noopener">ONG Lueur d'Espoir</a>` : ""}</div>
+  <div><h4>Élèves et participants</h4><a href="commencer.html">Commencer : s'inscrire</a><a href="espace.html">Mon espace</a>${LIENS.academie ? `<a href="${LIENS.academie}" target="_blank" rel="noopener">Pôle formation BMT Green Academy</a>` : ""}${LIENS.ong ? `<a href="${LIENS.ong}"${cibleLien(LIENS.ong)}>ONG Lueur d'Espoir</a>` : ""}</div>
   <div><h4>L'équipe</h4><a href="equipe.html">Parcours du programme</a><a href="equipe.html#pdf">Fiches à imprimer</a><a href="liens.html">Tous les liens</a><a href="dashboard.html">Tableau de bord</a></div>
   <p class="partenaire">En partenariat avec l'Association des Arts-Thérapeutes, Coachs et Praticiens Holistiques de Côte d'Ivoire.</p></div></footer>`;
 const FOOT_ONG = `<footer><div class="wrap"><div><b>ONG Lueur d'Espoir</b>Aidez-nous à nous aider</div></div></footer>`;
@@ -94,7 +96,7 @@ const ETAPES = [
     ["eleve_inscr", "lycee=gnalega", "Lycée de Garçons Gnaléga Mémé Jérémie de Bingerville", "Lien à donner aux élèves de ce lycée : l'établissement est déjà choisi."]] },
   { id: "quiz", court: "Parcours", t: "Parcours des *élèves*", s: "Pour les élèves : les cours et auto-évaluations de l'Axe 1 et de l'Axe 2, puis un examen final par axe.", items: [
     ["@espace.html", "", "Mon espace (parcours de l'élève)", "Inscription, évaluation initiale, Axe 1, Axe 2, examens finaux, évaluation finale."],
-    ["@examen.html", "", "Examens finaux (Axe 1 et Axe 2)", "10 questions par axe, corrigées par le serveur : une seule tentative, note transmise à la direction."]] },
+    ["@examen.html", "", "Examens finaux (Axe 1 et Axe 2)", "15 questions pour l'Axe 1 (dont la sensibilisation) et 10 pour l'Axe 2, corrigées par le serveur : une seule tentative par axe, note transmise à la direction."]] },
   { id: "pilotage", court: "Résultats", t: "*Résultats*", s: "Suivre le programme en direct.", items: [
     ["@dashboard.html", "", "Tableau de bord", "Inscrits, progrès, élèves éligibles et bénéficiaires.", true]] },
 ];
@@ -426,7 +428,7 @@ function sectionsResultats(d, fr, kpi, pct, n2) {
   return `<h2 class="sec">Examen final noté</h2><div class="kpis">${kpi(X.copies, "Copies reçues")}${kpi(pct(X.moyennePct), "Note moyenne")}${kpi(X.reussis ?? 0, "Réussites", "seuil provisoire : " + (X.seuilPct ?? 70) + " %")}${kpi(pct(X.pctReussite), "Taux de réussite")}</div>
   <div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Copies</th><th>Moyenne</th><th>Réussites</th><th>Certificats (max ${X.nbCertificats ?? 150})</th></tr>${(X.parEtab || []).map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${pct(e.moyennePct)}</td><td>${e.reussis}</td><td><b>${e.certificats}</b></td></tr>`).join("") || '<tr><td colspan="5">Aucune copie pour le moment.</td></tr>'}</table></div>
   <div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Note</th><th>Axe 1</th><th>Axe 2</th><th></th></tr>${(X.liste || []).map(x => `<tr><td><b>${esc(x.nom)} ${esc(x.prenom)}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td>${x.note} / ${x.total}</td><td>${x.a1 ? x.axe1 : "—"}</td><td>${x.a2 ? x.axe2 : "—"}</td><td>${x.complet ? oui(x.reussi) : "Incomplet"}</td></tr>`).join("") || '<tr><td colspan="7">Aucune copie.</td></tr>'}</table></div>
-  <h2 class="sec">Auto-évaluations des modules</h2><div class="kpis">${kpi(Q.tentatives, "Essais envoyés")}${kpi(Q.personnes, "Personnes concernées")}</div>
+  <h2 class="sec">Auto-évaluations des modules</h2><div class="kpis">${kpi(Q.tentatives, "Essais envoyés")}${kpi(Q.personnes, "Personnes concernées")}${kpi((d.autres || {}).reflexions ?? 0, "Réflexions écrites", "sensibilisation")}</div>
   <div class="panneau"><table class="tb"><tr><th>Module</th><th>Essais</th><th>Score moyen</th></tr>${(Q.parModule || []).map(m => `<tr><td>${esc(m.titre)}</td><td>${m.n}</td><td>${pct(m.moyennePct)}</td></tr>`).join("") || '<tr><td colspan="3">Aucun essai pour le moment.</td></tr>'}</table></div>
   <h2 class="sec">Toutes les personnes (${L.length})</h2><p class="help" style="margin:0 0 10px">Cherche un nom, filtre par profil ou par état, et clique sur une ligne pour voir le détail de la personne (modules de quiz, contact). « Télécharger » donne un fichier Excel avec tout le monde.</p>
   <div class="barre-outils"><input id="rech" type="search" placeholder="Rechercher un nom, une classe, un lycée…" aria-label="Rechercher une personne">
@@ -516,8 +518,8 @@ function renderAccueil() {
         <div class="pas-i" style="--k:0"><h3>Pas d'horaire imposé</h3><p>Les supports sont disponibles dès l'inscription. Tu les lis et tu t'exerces quand tu veux, sur téléphone.</p></div>
         <div class="pas-i" style="--k:1"><h3>Corrigés immédiats</h3><p>Chaque auto-évaluation explique la bonne réponse, même quand tu te trompes. Tu peux recommencer autant que tu veux.</p></div>
         <div class="pas-i" style="--k:2"><h3>Examen à date annoncée</h3><p>Seul l'examen final s'ouvre à une date communiquée par l'équipe. Il est corrigé automatiquement.</p></div></div></div></section>
-    <section class="bande sable" id="plateformes"><div class="wrap"><div class="etape-tete"><div><h2>La <em>plateforme éducative</em></h2><p>Les autres formations de BMT Green Academy se trouvent sur sa plateforme éducative.</p></div></div>
-      <div class="actions">${lienPlateforme(LIENS.academie, "Accéder à la plateforme éducative", "or")}${lienPlateforme(LIENS.ong, "Site de l'ONG Lueur d'Espoir")}</div></div></section>
+    <section class="bande sable" id="plateformes"><div class="wrap"><div class="etape-tete"><div><h2>Les autres <em>formations</em></h2><p>BMT Green Academy propose bien d'autres formations sur sa plateforme éducative.</p></div></div>
+      ${BOUTON_FORMATIONS()}<div class="actions" style="justify-content:center">${lienPlateforme(LIENS.ong, "Découvrir l'ONG Lueur d'Espoir")}</div></div></section>
   </main>` + PARTENAIRES + FOOT;
   brancherInstaller();
   UIok();
@@ -529,7 +531,7 @@ function renderCommencer() {
   if (cle) { renderForm(cle); return; }
   document.title = "Commencer — La Noblesse du Cœur";
   const p = profil();
-  app().innerHTML = header() + BANDEAU("plateau", `<span class="eyebrow" style="--k:0">Étape 1 sur 2</span><h1>Qui <em>es-tu</em> ?</h1><p class="lead" style="--k:1">Choisis ton profil. Le site te montrera ensuite uniquement les quiz et les évaluations qui te concernent.</p>`, true) + `
+  app().innerHTML = header() + BANDEAU("plateau", `<span class="eyebrow" style="--k:0">Étape 1 sur 2</span><h1>Qui <em>es-tu</em> ?</h1><p class="lead" style="--k:1">Choisis ton profil. Le site te montrera ensuite uniquement les cours, les auto-évaluations et les examens qui te concernent.</p>`, true) + `
   <main class="wrap" id="contenu" tabindex="-1">
     ${p ? `<div class="ok" style="margin-top:28px"><b>Tu es inscrit(e) sur cet appareil : ${esc(prenomDe(p))}.</b> <a href="espace.html">Aller à mon espace</a>. Pour inscrire quelqu'un d'autre, choisis un profil ci-dessous.</div>` : ""}
     <div style="margin:28px 0 8px">${CARTES_PROFIL}</div></main>` + FOOT;
@@ -553,6 +555,8 @@ function bienvenue(form, type, data, res) {
 }
 
 /* ---------------- aides communes aux quiz et à « Mon espace » ---------------- */
+const NB_QUESTIONS_EXAMEN = { 1: 15, 2: 10 };   // examen final : Axe 1 = 10 questions sur l'art de la paix + 5 sur la sensibilisation ; Axe 2 = 10 questions
+const SEUIL_ACCES_EXAMEN = 70;               // % minimal à CHAQUE auto-évaluation d'un axe pour ouvrir son examen final (à confirmer par la coordination)
 const SEUIL_QUIZ = 70;                       // % à partir duquel un module est « maîtrisé » (simple encouragement : l'examen final a son propre seuil)
 const LETTRES = "ABCD";
 const melanger = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -561,6 +565,8 @@ const tousModules = () => typeof QUIZ === "undefined" ? [] : QUIZ.flatMap(a => a
 const etatModule = (best, m) => best[m.id] == null ? "afaire" : best[m.id] >= SEUIL_QUIZ ? "maitrise" : "encours";
 const LIBELLE_ETAT = { afaire: "À faire", encours: "À retravailler", maitrise: "Maîtrisé" };
 const minutes = m => Math.max(2, Math.round(m.questions.length * 0.4));
+/* L'examen d'un axe s'ouvre quand tous ses modules (sensibilisation comprise) ont une auto-évaluation validée. Règle côté site : elle guide l'élève (le serveur ne la contrôle pas). */
+const axeProgres = id => { const best = store.get("ndc_quiz", {}) || {}, mods = tousModules().filter(m => m.axeId === id), restants = mods.filter(m => !(best[m.id] >= SEUIL_ACCES_EXAMEN)); return { mods, restants, pret: mods.length > 0 && restants.length === 0 }; };
 /* bilan de la progression de la personne (meilleur score de chaque module, gardé sur son appareil) */
 function bilanQuiz() {
   const best = store.get("ndc_quiz", {}), mods = tousModules();
@@ -592,6 +598,7 @@ function finEvaluation(form, res) {
 /* ---------- images des modules (affiches) et fiches récapitulatives ---------- */
 const IMG_MODULE = {
   a1m1: { c: "mod-a1m1" }, a1m2: { c: "mod-a1m2" }, a1m3: { c: "mod-a1m3" }, a1m4: { c: "mod-a1m4" },
+  a1m5: { c: "mod-a1m5", doc: "axe1-preserver-sa-vie", taille: "4 Mo" },   // sensibilisation : son propre document
   a2m1: { c: "mod-a2m1", f: ["fiche-a2m1"] }, a2m2: { c: "mod-a2m2", f: ["fiche-a2m2"] }, a2m3: { c: "mod-a2m3", f: ["fiche-a2m3"] }, a2m4: { c: "mod-a2m4", f: ["fiche-a2m4"] },
   a2m5: { c: "mod-a2m5" }, a2m6: { c: "mod-a2m6", f: [1, 2, 3, 4, 5, 6].map(n => "fiche-a2m6-" + n) },
 };
@@ -609,6 +616,7 @@ const BIBLIO = [
     ["axe2-carnets-de-suivi", "Carnets de suivi", "Pour suivre ta progression pas à pas.", "2 Mo"]] },
 ];
 const coursAxe = id => (BIBLIO.find(c => c.id === id) || BIBLIO[0]).docs[0];
+const coursModule = m => { const i = IMG_MODULE[m.id] || {}; return i.doc ? [i.doc, "Sensibilisation : Préserver sa vie", "", i.taille] : coursAxe(m.axeId); };   // le PDF propre au module, sinon le cours de l'axe
 function renderBibliotheque() {
   const p = profil();
   if (!p) { location.replace("commencer.html"); return; }
@@ -624,7 +632,13 @@ function renderBibliotheque() {
 }
 
 /* ---------------- mon espace : Axe 1, Axe 2, examens finaux : simple et regroupé ---------------- */
-const lienPlateforme = (url, txt, cls = "sec") => url ? `<a class="btn ${cls}" href="${esc(url)}" target="_blank" rel="noopener">${txt}</a>` : "";
+const lienPlateforme = (url, txt, cls = "sec") => url ? `<a class="btn ${cls}" href="${esc(url)}"${cibleLien(url)}>${txt}</a>` : "";
+/* Accès au pôle formation de BMT Green Academy : l'image du bouton (fond retiré), avec une phrase en vert gras au-dessus */
+const BOUTON_FORMATIONS = () => LIENS.academie
+  ? `<div class="acces-formations"><p class="acces-txt">Pour découvrir les autres formations, accède au <strong>pôle formation de BMT Green Academy</strong> : touche le bouton.</p>
+  <a class="btn-image" href="${esc(LIENS.academie)}" target="_blank" rel="noopener" aria-label="Nos Formations : accéder au pôle formation de BMT Green Academy"><img src="img/bouton-formations.webp" width="640" height="382" alt="Nos Formations"></a></div>`
+  : `<div class="acces-formations"><p class="acces-txt"><strong>Pôle formation de BMT Green Academy</strong> : l'accès s'ouvrira très bientôt, quand les deux plateformes seront reliées.</p>
+  <span class="btn-image ferme" role="img" aria-label="Nos Formations : accès bientôt ouvert"><img src="img/bouton-formations.webp" width="640" height="382" alt=""></span><p class="bientot">Accès bientôt ouvert</p></div>`;
 const EXPLICATION_ASYNCHRONE = `<div class="asynchrone"><h3>Une formation <em>asynchrone</em></h3>
   <p>Pas de cours à heure fixe : tu reçois les supports dès ton inscription et tu avances à ton rythme, quand tu veux, depuis ton téléphone. Les corrigés s'affichent tout de suite. Seule l'ouverture des examens finaux est annoncée par l'équipe.</p></div>`;
 function renderEspace() {
@@ -642,7 +656,7 @@ function renderEspace() {
     ...(eleve ? [{ t: "Évaluation initiale", d: "7 affirmations sur ton comportement : le point de départ.", fait: !!E.eval_avant, href: "form.html?f=eval&phase=avant&moi=1" }] : []),
     axe("axe1", "Axe 1", "L'art de la paix"),
     axe("axe2", "Axe 2", "L'art de l'impact"),
-    ...(ac.examen ? [{ t: "Examens finaux", d: `Un examen par axe, une seule tentative chacun. Axe 1 : ${F.axe1 ? "envoyé" : "à passer"} · Axe 2 : ${F.axe2 ? "envoyé" : "à passer"}.`, fait: examensFaits, href: "examen.html" },
+    ...(ac.examen ? [{ t: "Examens finaux", d: `Un examen par axe, une seule tentative chacun, une fois toutes les auto-évaluations de l'axe validées (${SEUIL_ACCES_EXAMEN} % minimum). Axe 1 : ${F.axe1 ? "envoyé" : axeProgres("axe1").pret ? "à passer" : "à débloquer"} · Axe 2 : ${F.axe2 ? "envoyé" : axeProgres("axe2").pret ? "à passer" : "à débloquer"}.`, fait: examensFaits, href: "examen.html" },
       { t: "Évaluation finale", d: "Les mêmes 7 affirmations : on mesure ta progression.", fait: !!E.eval_apres, href: "form.html?f=eval&phase=apres&moi=1", apres: examensFaits }] : []),
   ];
   const actuelle = parcours.findIndex(e => !e.fait);
@@ -659,8 +673,7 @@ function renderEspace() {
     <h2 class="sec">Ton parcours</h2><ol class="etapes-esp">${parcours.map(etapeHtml).join("")}</ol>
     <h2 class="sec">Support pédagogique</h2><div class="liste"><a class="item" href="bibliotheque.html"><span class="vignette pdf" aria-hidden="true"><b>PDF</b></span><span class="txt"><b>Bibliothèque</b><span>Les cours, le guide, le manuel, les fiches pratiques et les carnets de suivi.</span></span><span class="chev" aria-hidden="true"></span></a></div>
     ${EXPLICATION_ASYNCHRONE}
-    ${LIENS.academie ? `<section class="plateforme-fin" aria-labelledby="pf-t"><h2 id="pf-t">Va plus <em>loin</em></h2><p>Retrouve toutes les formations de BMT Green Academy sur sa plateforme éducative.</p>
-      <a class="btn plateforme" href="${esc(LIENS.academie)}" target="_blank" rel="noopener">Accéder à la plateforme éducative de BMT Green Academy</a></section>` : ""}
+    <section class="plateforme-fin" aria-labelledby="pf-t"><h2 id="pf-t">Va plus <em>loin</em></h2>${BOUTON_FORMATIONS()}</section>
     <div class="actions" style="margin-top:22px">${INSTALLER}<button type="button" class="btn sec" id="autre">Ce n'est pas moi</button></div>
     <p class="help">Astuce : pour garder le site sur ton téléphone, ouvre le menu du navigateur et choisis « Ajouter à l'écran d'accueil ».</p></main>` + FOOT;
   $("#autre").onclick = () => { try { ["ndc_profil", "ndc_etapes", "ndc_examen_fait", "ndc_parcours", "ndc_quiz"].forEach(k => localStorage.removeItem(k)); } catch (e) {} location.href = "commencer.html"; };
@@ -668,3 +681,26 @@ function renderEspace() {
   UIok();
 }
 
+
+/* ---------------- ONG Lueur d'Espoir : page dans l'application (logo de l'ONG, présentation, contact, presse) ---------------- */
+function renderOng() {
+  document.title = "ONG Lueur d'Espoir — La Noblesse du Cœur";
+  const tel = "+225 01 01 73 68 12", presse = typeof PRESSE !== "undefined" ? PRESSE : [];
+  const image = (f, w, h, alt) => `<figure class="ong-img"><a href="img/${f}.webp" target="_blank" rel="noopener"><img src="img/${f}.webp" width="${w}" height="${h}" loading="lazy" alt="${esc(alt)}"></a></figure>`;
+  const don = "https://wa.me/2250101736812?text=" + encodeURIComponent("Bonjour, je souhaite faire un don à l'ONG Lueur d'Espoir.");
+  app().innerHTML = header("ong") + `
+  <section class="ong-tete"><div class="wrap ong-in"><img class="ong-logo" src="img/logo_lueur-480.webp" width="480" height="480" alt="Logo de l'ONG Lueur d'Espoir">
+    <div class="ong-txt"><span class="eyebrow">ONG partenaire</span><h1>ONG Lueur <em>d'Espoir</em></h1>
+      <p class="devise-ong">Redonner espoir, révéler les potentiels, transformer durablement les communautés.</p>
+      <ul class="valeurs-ong"><li>Dignité humaine</li><li>Inclusion sociale</li><li>Paix et vivre-ensemble</li><li>Leadership positif</li><li>Engagement citoyen</li></ul>
+      <div class="actions"><a class="btn or" href="tel:+2250101736812">Appeler le ${tel}</a><a class="btn" href="${don}" target="_blank" rel="noopener">Faire un don</a></div></div></div></section>
+  <main class="wrap" id="contenu" tabindex="-1">
+    <div class="ong-galerie">${image("ong-affiche", 720, 1080, "Affiche de l'ONG Lueur d'Espoir : redonner espoir, révéler les potentiels, transformer durablement les communautés")}
+      ${image("ong-presentation", 906, 1080, "Présentation de l'ONG Lueur d'Espoir : qui sommes-nous, vision, mission, valeurs et engagement")}
+      ${image("ong-partenariats", 906, 1080, "Partenariats, engagement et devise de l'ONG Lueur d'Espoir")}</div>
+    ${presse.length ? `<h2 class="sec">Dans la presse</h2><div class="liste">${presse.map(x => `<a class="item" href="${esc(x.u)}" target="_blank" rel="noopener"><span class="vignette pdf" aria-hidden="true"><b>WEB</b></span><span class="txt"><b>${esc(x.t)}</b><span>${esc(x.s || "")}</span></span><span class="chev" aria-hidden="true"></span></a>`).join("")}</div>` : ""}
+    <section class="don-ong" aria-labelledby="don-t"><h2 id="don-t">Faire un <em>don</em></h2><p>Soutenir la dignité, financer l'éducation, agir avec humanité. Écris-nous sur WhatsApp : l'ONG te répond.</p>
+      <a class="btn or" href="${don}" target="_blank" rel="noopener">Faire un don sur WhatsApp</a></section>
+    <div class="actions" style="margin-top:26px"><a class="btn sec" href="index.html">Retour à La Noblesse du Cœur</a></div></main>` + FOOT_ONG;
+  UIok();
+}

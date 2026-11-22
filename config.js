@@ -4,6 +4,11 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzu85-dWgiyb2qbYG___ppm
 
 /* Liens vers les autres plateformes. Laisser vide ("") pour masquer un lien. */
 const LIENS = {
-  academie: "https://xtruck149.github.io/bmtacademy/",   // plateforme académique BMT Green Academy (formations, catalogue)
-  ong: "https://xtruck149.github.io/bmtacademy/engagement/lueur-despoir.html",   // page de l'ONG Lueur d'Espoir (coordonnées, dons) sur le site de BMT Green Academy
+  academie: "",   // POUR OUVRIR L'ACCÈS : mettre ici https://xtruck149.github.io/bmtacademy/formations/index.html (page « Toutes les formations »). Vide = bouton visible mais fermé (« bientôt »).
+  ong: "ong.html",   // page de l'ONG Lueur d'Espoir, dans cette application (logo, présentation, contact, presse)
 };
+
+/* Revue de presse de l'ONG Lueur d'Espoir (page ong.html). Ajouter une ligne par article, par exemple :
+   { t: "Titre de l'article", s: "Nom du journal", u: "https://adresse-de-l-article" }
+   Laisser la liste vide pour masquer la section. */
+const PRESSE = [];

@@ -16,7 +16,7 @@
  * Chaque formulaire a son onglet ; l'onglet « ONG — Bénéficiaires » reçoit un numéro automatique.
  */
 var ONGLET = { engagement: 'Responsables', eval: 'Évaluation élève', ens: 'Grille enseignant', inc: 'Registre incidents', suivi: 'Suivi individuel',
-  rapport: 'Rapport établissement', pv: 'PV de sélection', liste: 'Élèves retenus', ong: 'ONG — Bénéficiaires', inscription: 'Inscriptions formations', eleve_inscr: 'Inscriptions élèves', quiz: 'Résultats quiz' };
+  rapport: 'Rapport établissement', pv: 'PV de sélection', liste: 'Élèves retenus', ong: 'ONG — Bénéficiaires', inscription: 'Inscriptions formations', eleve_inscr: 'Inscriptions élèves', quiz: 'Résultats quiz', reflexion: 'Réflexions sensibilisation' };
 
 /* Examen noté en ligne. Les questions ET les bonnes réponses sont dans le fichier PRIVÉ ExamenPrive.gs
    (jamais sur GitHub : le site public n'a donc aucun moyen de connaître les réponses).
@@ -324,7 +324,7 @@ function calculer(D, opts) {
   var O = D.ong || [], I = D.inscription || [];
   out.ong = { total: O.length, handicap: compte(O, 'handicap'), besoins: compte(O, 'besoins'), sexe: compte(O, 'sexe'), commune: compte(O, 'commune') };
   out.autres = { responsables: (D.engagement || []).length, rapports: (D.rapport || []).length, pv: (D.pv || []).length,
-                 retenus: (D.liste || []).length, inscriptions: I.length, formations: compte(I, 'formation') };
+                 retenus: (D.liste || []).length, reflexions: (D.reflexion || []).length, inscriptions: I.length, formations: compte(I, 'formation') };
   /* Examen final noté : copies, moyenne, réussite (>= seuil), distinction (>= 80) et classement général des meilleurs (deux lycées réunis) */
   var XP = {};                                          // une personne = une ligne ; l'examen de l'Axe 1 et celui de l'Axe 2 s'additionnent
   (D.examens || []).forEach(function (r) {

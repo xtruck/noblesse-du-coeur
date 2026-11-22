@@ -681,8 +681,8 @@ button[disabled].btn{opacity:.55;cursor:not-allowed}
 
 /* sous-titre de l'accueil, bouton orange vers la plateforme, étapes d'un axe */
 .ouverture .sous-titre{margin:-6px 0 16px;font:italic 400 clamp(20px,4.2vw,28px)/1.2 var(--serif);color:var(--or-clair);letter-spacing:.01em}
-.btn.plateforme{background:var(--orange);border-color:var(--orange);color:#1b1608;font-weight:800;font-size:clamp(16px,3.6vw,19px);padding:18px 30px;box-shadow:0 10px 26px rgba(247,127,0,.38);text-align:center;transition:transform var(--d-normal) var(--ease),box-shadow var(--d-normal)}
-.btn.plateforme:hover,.btn.plateforme:focus-visible{transform:translateY(-3px);box-shadow:0 16px 34px rgba(247,127,0,.5);color:#1b1608}
+.btn.plateforme{display:flex;width:min(100%,560px);margin:0 auto;white-space:normal;text-align:center;line-height:1.3;padding:18px 28px;min-height:64px;border:0;border-radius:999px;background:linear-gradient(180deg,#ff9a1f,#f77f00);color:var(--foret-dk);font-weight:800;font-size:clamp(16px,3.8vw,19px);box-shadow:0 8px 22px rgba(247,127,0,.32),inset 0 1px 0 rgba(255,255,255,.45);transition:transform var(--d-normal) var(--ease),box-shadow var(--d-normal)}
+.btn.plateforme:hover,.btn.plateforme:focus-visible{transform:translateY(-3px);box-shadow:0 14px 30px rgba(247,127,0,.42),inset 0 1px 0 rgba(255,255,255,.45);color:var(--foret-dk)}
 .plateforme-fin{margin:34px 0 8px;padding:clamp(24px,5vw,40px);border-radius:var(--r);background:linear-gradient(135deg,#fff7ea,#fff);border:1.5px solid #f4c98a;text-align:center;box-shadow:var(--ombre)}
 .plateforme-fin h2{font:300 clamp(28px,6vw,40px)/1.1 var(--serif);color:var(--vert);margin:0 0 8px}
 .plateforme-fin h2 em{color:var(--or-texte)}
@@ -702,3 +702,56 @@ button[disabled].btn{opacity:.55;cursor:not-allowed}
 .axe-examen p{margin:0;color:var(--gris);max-width:44ch}
 .carte-examen h3{font-size:clamp(28px,6vw,38px)}
 @media (max-width:560px){.etape-axe{grid-template-columns:auto 1fr}.mini-affiche{display:none}}
+
+/* module : l'auto-évaluation est l'étape 2, « Retour à l'axe » est centré sous l'affiche */
+.affiche figcaption{display:flex;justify-content:center;margin-top:14px}
+.chemin .btn.or.petit{width:100%;max-width:340px}
+.info-eval{display:block;margin-top:10px!important;font-size:14px;color:var(--gris)}
+.info-eval em{font-style:normal;font-weight:700;color:var(--or-texte)}
+.chemin li{align-items:center}
+
+/* bouton image « Nos Formations » (fond retiré), page de l'ONG */
+.plateforme-fin{background:none!important;border:0!important;box-shadow:none!important;padding:8px 0 0!important}
+.acces-formations{display:grid;justify-items:center;gap:14px;margin:6px auto 8px;text-align:center}
+.acces-txt{margin:0;max-width:42ch;font-size:17px;line-height:1.45;color:var(--encre)}
+.acces-txt strong{color:var(--vert);font-weight:800}
+.btn-image{display:block;width:min(100%,400px);transition:transform var(--d-normal) var(--ease),filter var(--d-normal)}
+.btn-image img{display:block;width:100%;height:auto;outline:none;filter:drop-shadow(0 8px 14px rgba(120,60,0,.28))}
+.btn-image:hover,.btn-image:focus-visible{transform:translateY(-4px) scale(1.03)}
+.btn-image:active{transform:scale(.98)}
+.ong-tete{background:radial-gradient(ellipse at 15% 0%,#fff7e1,transparent 60%),linear-gradient(180deg,var(--creme),var(--sable));padding:clamp(28px,5vw,52px) 0;border-bottom:1px solid var(--filet)}
+.ong-in{display:flex;align-items:center;gap:clamp(20px,5vw,56px);flex-wrap:wrap;justify-content:center}
+.ong-logo{width:min(46vw,260px);height:auto;filter:drop-shadow(0 12px 26px rgba(12,46,31,.2))}
+.ong-txt{flex:1 1 320px;min-width:0}
+.ong-txt h1{font:300 clamp(34px,7vw,58px)/1.02 var(--serif);color:var(--vert);margin:6px 0 10px}
+.ong-txt h1 em{color:var(--or-texte)}
+.devise-ong{font:italic 400 clamp(18px,3.6vw,23px)/1.35 var(--serif);color:var(--or-texte);margin:0 0 16px;max-width:36ch}
+.valeurs-ong{list-style:none;display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px;padding:0}
+.valeurs-ong li{padding:7px 14px;border-radius:999px;background:var(--vert-pale);border:1px solid #c8dccf;color:var(--vert);font-weight:700;font-size:13.5px}
+.ong-galerie{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px;margin-top:30px;align-items:start}
+.ong-img{margin:0}
+.ong-img img{display:block;width:100%;height:auto;border-radius:var(--r);box-shadow:var(--ombre-haute);border:1px solid var(--or-filet);transition:transform var(--d-normal) var(--ease)}
+.ong-img a:hover img{transform:translateY(-4px)}
+.ong-logo{border-radius:50%;outline:none}
+
+/* parties de l'Axe 1, réflexion de la sensibilisation */
+.partie-t{list-style:none;margin:14px 0 2px;padding:0 4px;font:800 12.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--or-texte)}
+.reflexion{margin:26px 0 8px;padding:22px 20px;border-radius:var(--r);background:var(--or-pale);border:1.5px solid var(--or-filet);text-align:left}
+.reflexion h3{font:400 clamp(22px,4vw,28px) var(--serif);color:var(--vert);margin:0 0 4px}
+.reflexion h3 em{color:var(--or-texte)}
+.reflexion .fld{margin:14px 0}
+.reflexion label{display:block;font-weight:700;margin-bottom:6px;line-height:1.4}
+.reflexion textarea{width:100%;min-height:84px}
+.carte-examen.ferme{opacity:.86;background:var(--sable)}
+.carte-examen.ferme .aller{background:var(--gris)}
+.restants{margin:6px 0 16px;padding-left:20px;display:grid;gap:6px}
+.restants a{color:var(--vert2);font-weight:700}
+
+/* accès à la plateforme : version fermée, don de l'ONG */
+.btn-image.ferme{cursor:not-allowed;filter:grayscale(.55);opacity:.75}
+.btn-image.ferme:hover{transform:none}
+.bientot{margin:0;font:800 13px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--gris)}
+.don-ong{margin:34px 0 4px;padding:26px 22px;border-radius:var(--r);background:linear-gradient(135deg,var(--or-pale),#fff);border:1.5px solid var(--or-filet);text-align:center}
+.don-ong h2{font:300 clamp(28px,6vw,40px)/1.1 var(--serif);color:var(--vert);margin:0 0 8px}
+.don-ong h2 em{color:var(--or-texte)}
+.don-ong p{margin:0 auto 18px;max-width:46ch;color:var(--gris)}
