@@ -10,11 +10,11 @@ const DATE = new Date().toISOString().slice(0, 10);
 
 const ACCUEIL = { img: 'img/apercu-accueil.jpg', alt: 'La Noblesse du Cœur : logos de BMT Green Academy et de l\'ONG Lueur d\'Espoir' };
 const ONG = { img: 'img/apercu-ong.jpg', alt: 'ONG Lueur d\'Espoir : logo et devise' };
-const D_ACCUEIL = 'Programme éducatif en Côte d\'Ivoire : cours, auto-évaluations corrigées et examens en ligne. Par BMT Green Academy et l\'ONG Lueur d\'Espoir.';
+const D_ACCUEIL = 'L\'art de la politesse : cours, auto-évaluations corrigées et examens finaux, en ligne. Par BMT Green Academy et l\'ONG Lueur d\'Espoir.';
 
 /* indexe = la page peut apparaître dans Google ; sinon « noindex » (parcours de l'élève, espace équipe, formulaires) */
 const PAGES = {
-  'index.html': { titre: NOM + ' — Évaluation en ligne', desc: D_ACCUEIL, ...ACCUEIL, indexe: true, accueil: true },
+  'index.html': { titre: NOM + ' — Programme éducatif de sensibilisation', desc: D_ACCUEIL, ...ACCUEIL, indexe: true, accueil: true },
   'ong.html': { titre: 'ONG Lueur d\'Espoir — Redonner espoir, révéler les potentiels', desc: 'ONG Lueur d\'Espoir : dignité humaine, inclusion sociale, paix et vivre-ensemble, leadership positif et engagement citoyen. Contact : +225 01 01 73 68 12.', ...ONG, indexe: true },
   'commencer.html': { titre: 'S\'inscrire — ' + NOM, desc: 'Choisis ton profil (élève ou participant) et inscris-toi en une minute au programme La Noblesse du Cœur.', ...ACCUEIL },
   'espace.html': { titre: 'Mon espace — ' + NOM, desc: D_ACCUEIL, ...ACCUEIL },

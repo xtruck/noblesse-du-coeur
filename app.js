@@ -41,7 +41,7 @@ function header(mode) {
     return `${saut}<header class="ident"><div class="wrap"><div class="logo"><span class="nom"><b>ONG <em>Lueur</em> d'Espoir</b><span>Aidez-nous à nous aider</span></span></div>
     <img src="img/logo_lueur-160.webp" width="64" height="64" alt="ONG Lueur d'Espoir"></div></header><div class="tricolore"></div>`;
   return `${saut}<header class="ident"><div class="wrap">
-    <a class="logo" href="index.html" aria-label="La Noblesse du Cœur, accueil"><span class="paire-logos"><img src="img/logo_bmt-160.webp" width="65" height="62" alt=""><i class="trait-or"></i><img src="img/logo_lueur-160.webp" width="62" height="62" alt=""></span><span class="nom"><b>La Noblesse du <em>Cœur</em></b><span>BMT Green Academy et ONG Lueur d'Espoir</span></span></a>
+    <a class="logo" href="index.html" aria-label="La Noblesse du Cœur, accueil"><span class="paire-logos"><img src="img/logo_bmt-160.webp" width="65" height="62" alt=""><i class="trait-or"></i><img src="img/logo_lueur-160.webp" width="62" height="62" alt=""></span><span class="nom"><b>La Noblesse du Cœur</b><span>BMT Green Academy et ONG Lueur d'Espoir</span></span></a>
     <nav class="nav" aria-label="Navigation principale">${NAVX.map(lienNav).join("")}<a class="btn" href="${CTA_NAV[0]}">${CTA_NAV[1]}</a></nav>
     <button class="burger" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="tiroir"><span></span><span></span></button></div></header>
   <div class="voile"></div>
@@ -62,7 +62,7 @@ const PARTENAIRES = `<section class="bande partenaires" aria-labelledby="deux-or
   </div>
   <p class="devise">Respect, dignité, leadership, paix.</p></div></section>`;
 const FOOT = `<footer><div class="wrap">
-  <div class="a-propos-pied"><div class="ronds"><img src="img/logo_bmt-160.webp" width="167" height="160" alt="BMT Green Academy" loading="lazy"><img src="img/logo_lueur-160.webp" width="160" height="160" alt="ONG Lueur d'Espoir" loading="lazy"></div><b>La Noblesse du <em>Cœur</em></b>Respect, dignité, leadership, paix.<br>Programme d'éducation citoyenne, Côte d'Ivoire.</div>
+  <div class="a-propos-pied"><div class="ronds"><img src="img/logo_bmt-160.webp" width="167" height="160" alt="BMT Green Academy" loading="lazy"><img src="img/logo_lueur-160.webp" width="160" height="160" alt="ONG Lueur d'Espoir" loading="lazy"></div><b>La Noblesse du Cœur</b>Respect, dignité, leadership, paix.<br>Programme d'éducation citoyenne, Côte d'Ivoire.</div>
   <div><h4>Élèves et participants</h4><a href="commencer.html">Commencer : s'inscrire</a><a href="espace.html">Mon espace</a>${LIENS.academie ? `<a href="${LIENS.academie}" target="_blank" rel="noopener">Pôle formation BMT Green Academy</a>` : ""}${LIENS.ong ? `<a href="${LIENS.ong}"${cibleLien(LIENS.ong)}>ONG Lueur d'Espoir</a>` : ""}</div>
   <div><h4>L'équipe</h4><a href="equipe.html">Parcours du programme</a><a href="equipe.html#pdf">Fiches à imprimer</a><a href="liens.html">Tous les liens</a><a href="dashboard.html">Tableau de bord</a></div>
   <p class="partenaire">En partenariat avec l'Association des Arts-Thérapeutes, Coachs et Praticiens Holistiques de Côte d'Ivoire.</p></div></footer>`;
@@ -497,12 +497,12 @@ function brancherInstaller() { document.querySelectorAll(".installer").forEach(b
 
 /* ---------------- accueil public ---------------- */
 function renderAccueil() {
-  document.title = "La Noblesse du Cœur — Évaluation en ligne";
+  document.title = "La Noblesse du Cœur — Programme éducatif de sensibilisation";
   const p = profil(), nom = prenomDe(p);
   app().innerHTML = header() + BANDEAU("basilique", `
-    <h1>La Noblesse du <em>Cœur</em></h1>
+    <h1>La Noblesse du Cœur</h1>
     <p class="sous-titre" style="--k:1">L'art de la politesse</p>
-    <p class="lead" style="--k:2">${p ? `Content de te revoir, ${esc(nom)}. Retrouve ton parcours, tes auto-évaluations, tes examens et tes résultats.` : "<strong>Évaluation en ligne</strong> : inscris-toi, suis les cours de l'Axe 1 et de l'Axe 2 avec leurs auto-évaluations corrigées, puis passe tes examens finaux. Tout se fait sur téléphone, à ton rythme."}</p>
+    <p class="lead" style="--k:2">${p ? `Content de te revoir, ${esc(nom)}. Retrouve ton parcours, tes auto-évaluations, tes examens et tes résultats.` : "<strong>Programme éducatif de sensibilisation</strong> : cours, auto-évaluations corrigées et examens finaux, en ligne. Inscris-toi, suis l'Axe 1 et l'Axe 2 module par module, puis passe tes examens. Tout se fait sur téléphone, à ton rythme."}</p>
     <div class="cta" style="--k:2">${p ? '<a class="btn or" href="espace.html">Entrer dans mon espace</a>' : '<a class="btn or" href="commencer.html">Commencer</a>'}<a class="btn clair" href="#parcours">Comment ça marche</a></div>`) + `
   <main id="contenu" tabindex="-1">${DEMO() ? `<div class="wrap">${DEMO()}</div>` : ""}
     <section class="bande" id="commencer"><div class="wrap"><div class="etape-tete"><div><h2>${p ? "Ton <em>espace</em>" : "Qui <em>es-tu</em> ?"}</h2><p>${p ? "Tu es déjà inscrit(e) sur cet appareil." : "Choisis ton profil : le site te montrera uniquement ce qui te concerne."}</p></div></div>

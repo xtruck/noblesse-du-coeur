@@ -47,14 +47,15 @@ x = 50; coller(im, bmt, x, 165); x += bmt.width + 26
 d.line([(x, 185), (x, 365)], fill=OR, width=3); x += 26
 coller(im, ong, x, 165)
 gauche = x + ong.width + 55; dispo = W - 50 - gauche
-f1, t = ajuste(d, "La Noblesse du Cœur", "georgiab.ttf", 70, dispo); f2 = police("georgiaz.ttf", t)
-d.text((gauche, 130), "La Noblesse du ", font=f1, fill=VERT); d.text((gauche + d.textlength("La Noblesse du ", font=f1), 130), "Cœur", font=f2, fill=OR_TEXTE)
+f1, t = ajuste(d, "La Noblesse du Cœur", "georgiab.ttf", 70, dispo)
+d.text((gauche, 130), "La Noblesse du Cœur", font=f1, fill=VERT)          # le nom en une seule couleur ; l'or est réservé à « L'art de la politesse »
 d.text((gauche, 130 + t + 16), "L'art de la politesse", font=police("georgiai.ttf", 34), fill=OR_TEXTE)
 y = 130 + t + 16 + 62
 d.line([(gauche, y), (gauche + 110, y)], fill=OR, width=4)
-d.text((gauche, y + 22), "Évaluation en ligne", font=police("georgiab.ttf", 32), fill=ENCRE)
-d.text((gauche, y + 68), "Cours, auto-évaluations corrigées", font=police("georgia.ttf", 26), fill=ENCRE)
-d.text((gauche, y + 104), "et examens finaux", font=police("georgia.ttf", 26), fill=ENCRE)
+fb, tb = ajuste(d, "Programme éducatif de sensibilisation", "georgiab.ttf", 30, dispo)
+d.text((gauche, y + 22), "Programme éducatif de sensibilisation", font=fb, fill=ENCRE)
+d.text((gauche, y + 66), "Cours, auto-évaluations corrigées", font=police("georgia.ttf", 26), fill=ENCRE)
+d.text((gauche, y + 102), "et examens finaux, en ligne", font=police("georgia.ttf", 26), fill=ENCRE)
 centre(d, "BMT Green Academy  ×  ONG Lueur d'Espoir  ·  Côte d'Ivoire", police("georgiab.ttf", 31), H - 66, 0, W, CREME)
 im.save("img/apercu-accueil.jpg", "JPEG", quality=88, optimize=True, progressive=True)
 
