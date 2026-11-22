@@ -7,6 +7,7 @@ const fs = require('fs');
 const SITE = 'https://xtruck.github.io/noblesse-du-coeur/';   // adresse de base, avec « / » final
 const NOM = 'La Noblesse du Cœur';
 const DATE = new Date().toISOString().slice(0, 10);
+const VERSION_APERCU = '3';   // à augmenter quand on change l'image d'aperçu : WhatsApp et Facebook gardent les anciennes images en mémoire
 
 const ACCUEIL = { img: 'img/apercu-accueil.jpg', alt: 'La Noblesse du Cœur : logos de BMT Green Academy et de l\'ONG Lueur d\'Espoir' };
 const ONG = { img: 'img/apercu-ong.jpg', alt: 'ONG Lueur d\'Espoir : logo et devise' };
@@ -42,7 +43,7 @@ const donneesStructurees = () => JSON.stringify({
 });
 
 function bloc(page, p) {
-  const url = SITE + (page === 'index.html' ? '' : page), image = SITE + p.img;
+  const url = SITE + (page === 'index.html' ? '' : page), image = SITE + p.img + '?v=' + VERSION_APERCU;
   const l = [
     '<!-- seo:debut -->',
     `<title>${e(p.titre)}</title>`,
