@@ -22,7 +22,7 @@ function menuQuiz() {
       <div class="mbar" aria-hidden="true"><i style="--w:${(s || 0) / 100}"></i></div></div>
       <span class="mpuce">${LIBELLE_ETAT[e]}${s != null ? " · " + s + " %" : ""}</span></a>`;
   };
-  const sec = a => { const mods = B.mods.filter(m => m.axeId === a.id); return `<section class="axe" data-axe="${esc(a.id)}"><h2 class="axe-t">${esc(a.titre)}<small>${mods.filter(m => etatModule(B.best, m) === "maitrise").length} / ${mods.length} maîtrisés</small></h2><div class="mgrille">${mods.map((m, n) => carte(m, n)).join("")}</div></section>`; };
+  const sec = a => { const mods = B.mods.filter(m => m.axeId === a.id); return `<section class="axe" data-axe="${esc(a.id)}"><h2 class="axe-t">${esc(a.titre)}<small>${mods.filter(m => etatModule(B.best, m) === "maitrise").length} / ${mods.length} maîtrisés · <a class="lien-cours" href="pdf/cours/${coursAxe(a.id)[0]}.pdf" target="_blank" rel="noopener">Lire le cours (PDF)</a></small></h2><div class="mgrille">${mods.map((m, n) => carte(m, n)).join("")}</div></section>`; };
   app().innerHTML = header() + `
   <section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Quiz d'entraînement</span><h1>Teste tes <em>connaissances</em></h1>
     <p>La correction s'affiche après chaque question. Ces quiz ne comptent pas pour l'examen final, mais ton score est transmis à l'équipe pour suivre ta progression.</p>
@@ -36,6 +36,7 @@ function menuQuiz() {
     document.querySelectorAll(".segment button").forEach(x => x.setAttribute("aria-pressed", x === b));
     document.querySelectorAll(".axe").forEach(s => { s.hidden = !!b.dataset.f && s.dataset.axe !== b.dataset.f; });
   });
+  const depart = location.hash.slice(1); if (depart && document.querySelector(`.segment button[data-f="${depart}"]`)) document.querySelector(`.segment button[data-f="${depart}"]`).click();   // quiz.html#axe2 : ouvre directement un axe
   allumerAnneaux();
   UIok();
 }
@@ -44,14 +45,47 @@ function menuQuiz() {
 async function envoyerScore(m, bon, total, pct) {
   const pr = profil(), zone = document.getElementById("envoi-etat");
   if (!pr || notConfigured()) { if (zone) zone.textContent = "Mode démonstration : score gardé sur cet appareil."; return; }
-  const id = pr.type === "eleve" ? { etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe } : { nom: pr.nom, tel: pr.tel };
+  const id = pr.type === "eleve" ? { etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe, numero: pr.numero || "" } : { nom: pr.nom, tel: pr.tel, numero: pr.numero || "" };
   const res = await appelApi({ form: "quiz", profil: pr.type, ...id, module: m.id, titre: m.titre, score: bon, total, pct });
   const z = document.getElementById("envoi-etat"); if (!z) return;
   z.className = "envoi-etat " + (res.ok ? "envoi-bon" : "envoi-mal");
   z.textContent = res.ok ? "Résultat transmis à l'équipe." : "Résultat non transmis (réseau). Ton score reste noté sur cet appareil.";
 }
 
+/* Un module = un parcours éducatif (affiche, cours, fiche) PUIS les questions : les deux ne se séparent pas.
+   Le bouton des questions s'ouvre quand le cours a été ouvert (ou si le parcours a déjà été suivi). « Refaire » (go=1) va directement aux questions. */
 function jouerQuiz(m) {
+  const direct = new URLSearchParams(location.search).get("go") === "1";
+  direct ? jouerQuestions(m) : parcoursModule(m);
+}
+
+function parcoursModule(m) {
+  document.title = m.titre + " — Parcours éducatif — La Noblesse du Cœur";
+  const mods = tousModules().filter(x => x.axeId === m.axeId), rang = mods.findIndex(x => x.id === m.id) + 1, vu = store.get("ndc_parcours", {});
+  const img = IMG_MODULE[m.id] || {}, cours = coursAxe(m.axeId), court = m.titre.replace(/^Module \d+ · /, "");
+  const best = store.get("ndc_quiz", {})[m.id];
+  app().innerHTML = `<a class="saut" href="#contenu">Aller au parcours</a><div class="qjeu">
+    <header class="qbar"><a class="qx" href="quiz.html" aria-label="Retour aux modules"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
+      <div class="qtitre"><b>${esc(court)}</b><span>${esc(m.axe)} · module ${rang} sur ${mods.length}</span></div></header>
+    <main id="contenu" tabindex="-1" class="parcours-page"><div class="parcours entre">
+      ${img.c ? `<figure class="affiche"><img src="img/${img.c}.webp" width="640" height="960" alt="Affiche du module : ${esc(court)}"></figure>` : ""}
+      <div class="parcours-corps"><p class="qnum">Parcours éducatif</p><h1>${esc(court)}</h1>
+        <p class="parcours-sous">${esc(m.axe)} · module ${rang} sur ${mods.length}${best != null ? " · meilleur score : " + best + " %" : ""}</p>
+        <ol class="chemin">
+          <li class="${vu[m.id] ? "fait" : ""}" id="e-cours"><span class="pastille">1</span><div><b>Lis le cours</b><span>Le cours de l'${esc(m.axe.split(" · ")[0].replace("Axe", "Axe"))} s'ouvre en PDF. Repère le ${esc(m.titre.split(" · ")[0].toLowerCase())}.</span>
+            <a class="btn sec petit" id="ouvrir-cours" href="pdf/cours/${cours[0]}.pdf" target="_blank" rel="noopener">Ouvrir le cours (PDF, ${cours[3]})</a></div></li>
+          ${img.f ? `<li><span class="pastille">2</span><div><b>Consulte la fiche du module</b><span>L'essentiel en images : objectifs, points clés, actions pratiques.</span></div></li>` : ""}
+          <li><span class="pastille">${img.f ? 3 : 2}</span><div><b>Réponds aux ${m.questions.length} questions</b><span>La correction s'affiche après chaque question, même si tu te trompes.</span></div></li></ol>
+        ${img.f ? `<div class="fiches" aria-label="Fiche du module">${img.f.map((f, k) => `<a href="img/${f}.webp" target="_blank" rel="noopener"><img src="img/${f}.webp" width="720" height="1080" loading="lazy" alt="Fiche du module, page ${k + 1}"></a>`).join("")}</div>` : ""}
+        <div class="actions"><button type="button" class="btn or" id="aller" ${vu[m.id] ? "" : "disabled"}>Commencer les questions</button><a class="btn sec" href="quiz.html">Tous les modules</a></div>
+        <p class="help" id="aide-aller">${vu[m.id] ? "Tu as déjà suivi le parcours de ce module." : "Ouvre d'abord le cours (étape 1) : les questions se débloquent ensuite."}</p></div></div></main></div>`;
+  const aller = $("#aller"), debloquer = () => { const v = store.get("ndc_parcours", {}); v[m.id] = Date.now(); store.set("ndc_parcours", v); aller.disabled = false; $("#aide-aller").textContent = "Les questions sont débloquées."; $("#e-cours").classList.add("fait"); };
+  $("#ouvrir-cours").addEventListener("click", debloquer);
+  aller.onclick = () => { location.href = "quiz.html?m=" + encodeURIComponent(m.id) + "&go=1"; };
+  UIok();
+}
+
+function jouerQuestions(m) {
   document.title = m.titre + " — Quiz — La Noblesse du Cœur";
   // chaque partie : questions dans un ordre différent, et réponses mélangées (la bonne réponse change de place)
   const Q = melanger(m.questions).map(q => ({ ...q, o: melanger([{ t: q.ok, ok: true }, ...q.faux.map(t => ({ t, ok: false }))]) }));
@@ -119,7 +153,7 @@ function jouerQuiz(m) {
       <h2 tabindex="-1" id="enonce">${titre}</h2><p class="qres-mot">${bon} bonne${s} réponse${s} sur ${Q.length}. ${mot}${record ? " C'est ton meilleur score." : ""}</p>
       <div class="puces centre">${puce(bon, "bonnes")}${puce(Q.length - bon, "à revoir")}${puce(Math.floor(sec / 60) + " min " + String(sec % 60).padStart(2, "0"), "durée")}</div>
       <p class="envoi-etat" id="envoi-etat" role="status">Envoi du résultat…</p>
-      <div class="actions centre">${suivant ? `<a class="btn or" href="quiz.html?m=${esc(suivant.id)}">Module suivant</a>` : ""}<a class="btn ${suivant ? "sec" : ""}" href="quiz.html?m=${esc(m.id)}">Refaire ce quiz</a><a class="btn sec" href="quiz.html">Tous les quiz</a></div>
+      <div class="actions centre">${!reussi ? `<a class="btn sec" href="pdf/cours/${coursAxe(m.axeId)[0]}.pdf" target="_blank" rel="noopener">Relire le cours (PDF)</a>` : ""}${suivant ? `<a class="btn or" href="quiz.html?m=${esc(suivant.id)}">Module suivant</a>` : ""}<a class="btn ${suivant ? "sec" : ""}" href="quiz.html?m=${esc(m.id)}&go=1">Refaire les questions</a><a class="btn sec" href="quiz.html">Tous les quiz</a></div>
       ${ratees.length ? `<h3 class="revoir-t">À revoir (${ratees.length})</h3><div class="revoir">${ratees.map(q => `<details class="rev"><summary>${esc(q.q)}</summary><p><b>Bonne réponse :</b> ${esc(q.ok)}</p><p>${esc(q.e)}</p><small>Dans le cours : ${esc(q.ref)}</small></details>`).join("")}</div>` : '<p class="felic">Aucune erreur : sans faute.</p>'}</div>`;
     scrollTo({ top: 0, behavior: sansMouvement() ? "auto" : "smooth" });
     $("#enonce").focus({ preventScroll: true });

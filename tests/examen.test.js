@@ -21,6 +21,8 @@ function fauxClasseur() {
         const p = {
           setValues(v) { v.forEach((l, i) => { rows[r - 1 + i] = l.slice(); }); return p; },
           setFontWeight: () => p, setBackground: () => p, setFontColor: () => p,
+          getValues: () => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => (rows[r - 1 + i] || [])[c - 1 + j] ?? '')),
+          getValue: () => (rows[r - 1] || [])[c - 1] ?? '', setValue(v) { (rows[r - 1] = rows[r - 1] || [])[c - 1] = v; return p; },
           getCell: () => ({ setNumberFormat() {} }),
           createTextFinder(txt) { const t = { matchEntireCell: () => t, matchCase: () => t, findNext: () => { for (let i = 0; i < nr; i++) if (rows[r - 1 + i] && rows[r - 1 + i][c - 1] === txt) return { getRow: () => r + i }; return null; } }; return t; },
         };
@@ -118,13 +120,14 @@ test("on ne peut pas écrire une fausse note par le formulaire générique", () 
   assert.strictEqual(post({ form: 'examen', nom: 'X', note: 20 }).ok, false);
 });
 
-test("le tableau de bord calcule moyenne, réussites et certificats (plafonnés) par lycée", () => {
+test("le tableau de bord calcule moyenne, réussites, distinctions et les meilleurs retenus (classement général)", () => {
   const { ctx } = monde();
   const ligne = (nom, note) => ({ etablissement: 'Lycée A', nom, prenom: 'X', classe: '3e', note, total: 20, axe1: 5, axe2: 5 });
   const D = { examens: [ligne('A', 20), ligne('B', 14), ligne('C', 10)] };   // 100 %, 70 %, 50 %
-  const o = JSON.parse(JSON.stringify(ctx.calculer(D, { seuilPct: 70, nbCertificats: 1 })));
+  const o = JSON.parse(JSON.stringify(ctx.calculer(D, { seuilPct: 70, distinctionPct: 80, nbCertificats: 1 })));
   assert.strictEqual(o.examens.copies, 3); assert.strictEqual(o.examens.reussis, 2);
-  assert.strictEqual(o.examens.parEtab[0].certificats, 1);      // 2 réussites mais 1 seul certificat prévu
+  assert.strictEqual(o.examens.parEtab[0].retenus, 1);          // 2 réussites mais 1 seul « meilleur » retenu (classement général)
+  assert.strictEqual(o.examens.retenus, 1); assert.strictEqual(o.examens.distinctions, 1);   // 100 % seulement dépasse 80
   assert.strictEqual(o.examens.liste[0].nom, 'A');              // classement par note
   assert.strictEqual(o.personnes.length, 3);
 });
@@ -144,4 +147,22 @@ test("le fichier des bonnes réponses ne se trouve pas dans le dépôt public", 
   const trouves = [];
   (function parcourir(d) { fs.readdirSync(d, { withFileTypes: true }).forEach(e => { if (e.name === '.git' || e.name === 'node_modules') return; const p = path.join(d, e.name); e.isDirectory() ? parcourir(p) : /ExamenPrive|EXAMEN_PRIVE/.test(e.name + (/\.(js|gs|html|json)$/.test(e.name) && e.name !== 'examen.test.js' && fs.readFileSync(p, 'utf8').includes('EXAMEN_PRIVE = ') ? 'EXAMEN_PRIVE' : '')) && trouves.push(p); }); })(racine);
   assert.deepStrictEqual(trouves, []);
+});
+
+test("chaque élève reçoit un identifiant unique, et le retrouve s'il s'inscrit deux fois", () => {
+  const { ctx } = monde();
+  /* faux classeur minimal pour la feuille d'inscription : on réutilise fauxClasseur */
+  const classeur = fauxClasseur(); const props = {};
+  const c = vm.createContext({ console,
+    PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = v; } }) },
+    ContentService: { MimeType: { JSON: 'json' }, createTextOutput: s => ({ s, setMimeType() { return this; } }) },
+    LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) },
+    SpreadsheetApp: { getActiveSpreadsheet: () => classeur } });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'backend', 'Code.gs'), 'utf8'), c);
+  const post = corps => JSON.parse(c.doPost({ postData: { contents: JSON.stringify(corps) } }).s);
+  const a = post({ form: 'eleve_inscr', ...eleve }), b = post({ form: 'eleve_inscr', ...eleve, nom: 'Traoré', prenom: 'Ibrahim' });
+  assert.match(a.numero, /^NDC-\d{4}-0001$/); assert.match(b.numero, /^NDC-\d{4}-0002$/);
+  const encore = post({ form: 'eleve_inscr', ...eleve });
+  assert.strictEqual(encore.numero, a.numero);                  // même élève : même identifiant, pas de nouvelle ligne
+  assert.strictEqual(classeur.feuilles['Inscriptions élèves'].rows.length, 3);
 });

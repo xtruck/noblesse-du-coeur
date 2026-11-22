@@ -23,9 +23,9 @@ async function appelApi(corps) {
 
 /* Navigation principale : la même liste sert à l'en-tête (écran large) et au tiroir (mobile) */
 /* Profil de la personne (élève ou participant) : gardé sur son appareil après l'inscription. Il décide de ce qu'elle voit dans « Mon espace ». */
-const FORMATION_NDC = "La Noblesse du Cœur — formation continue";
+const FORMATION_NDC = "Programme de sensibilisation La Noblesse du Cœur";
 const profil = () => { const p = store.get("ndc_profil", null); return p && p.type ? p : null; };
-const acces = p => ({ quiz: !!p && (p.type === "eleve" || String(p.formation || "").includes(FORMATION_NDC)), examen: !!p && p.type === "eleve" });
+const acces = p => ({ quiz: !!p, examen: !!p && p.type === "eleve" });   // tout inscrit suit le parcours ; l'examen final noté est ouvert aux élèves des lycées pour l'instant
 const NAV = [["index.html", "Accueil"], ["equipe.html", "Espace équipe"]];                                   // site public
 const NAV_EQUIPE = [["equipe.html", "Parcours"], ["liens.html", "Liens"], ["dashboard.html", "Résultats"]];   // espace réservé à l'équipe
 const ctaNav = mode => mode === "equipe" ? ["index.html", "Site public"] : profil() ? ["espace.html", "Mon espace"] : ["commencer.html", "Commencer"];
@@ -61,7 +61,7 @@ const PARTENAIRES = `<section class="bande partenaires" aria-labelledby="deux-or
   <p class="devise">Respect, dignité, leadership, paix.</p></div></section>`;
 const FOOT = `<footer><div class="wrap">
   <div class="a-propos-pied"><div class="ronds"><img src="img/logo_bmt-160.webp" width="167" height="160" alt="BMT Green Academy" loading="lazy"><img src="img/logo_lueur-160.webp" width="160" height="160" alt="ONG Lueur d'Espoir" loading="lazy"></div><b>La Noblesse du <em>Cœur</em></b>Respect, dignité, leadership, paix.<br>Programme d'éducation citoyenne, Côte d'Ivoire.</div>
-  <div><h4>Élèves et participants</h4><a href="commencer.html">Commencer : s'inscrire</a><a href="espace.html">Mon espace</a></div>
+  <div><h4>Élèves et participants</h4><a href="commencer.html">Commencer : s'inscrire</a><a href="espace.html">Mon espace</a>${LIENS.academie ? `<a href="${LIENS.academie}" target="_blank" rel="noopener">Plateforme éducative</a>` : ""}${LIENS.ong ? `<a href="${LIENS.ong}" target="_blank" rel="noopener">ONG Lueur d'Espoir</a>` : ""}</div>
   <div><h4>L'équipe</h4><a href="equipe.html">Parcours du programme</a><a href="equipe.html#pdf">Fiches à imprimer</a><a href="liens.html">Tous les liens</a><a href="dashboard.html">Tableau de bord</a></div>
   <p class="partenaire">En partenariat avec l'Association des Arts-Thérapeutes, Coachs et Praticiens Holistiques de Côte d'Ivoire.</p></div></footer>`;
 const FOOT_ONG = `<footer><div class="wrap"><div><b>ONG Lueur d'Espoir</b>Aidez-nous à nous aider</div></div></footer>`;
@@ -95,8 +95,6 @@ const ETAPES = [
   { id: "quiz", court: "Quiz", t: "Quiz d'*entraînement*", s: "Pour les élèves : réviser les modules de l'Axe 1 et de l'Axe 2, puis passer l'examen final noté.", items: [
     ["@quiz.html", "", "Quiz d'entraînement", "Questions à choix avec correction immédiate, sur téléphone."],
     ["@examen.html", "", "Examen final noté", "20 questions corrigées par le serveur : une seule tentative, note transmise à la direction."]] },
-  { id: "formations", court: "Formations", t: "Formations BMT Green *Academy*", s: "S'inscrire aux formations de BMT Green Academy.", items: [
-    ["inscription", "", "Inscription aux formations", "Demande d'inscription : l'équipe BMT vous recontacte."]] },
   { id: "pilotage", court: "Résultats", t: "*Résultats*", s: "Suivre le programme en direct.", items: [
     ["@dashboard.html", "", "Tableau de bord", "Inscrits, progrès, élèves éligibles et bénéficiaires.", true]] },
 ];
@@ -158,6 +156,7 @@ function field(c) {
   const cls = "fld" + (c.half ? " half" : "");
   switch (c.t) {
     case "section": return `<div class="fld"><div class="sect">${esc(c.l)}</div></div>`;
+    case "fixe": return "";
     case "text": case "number": case "date": case "tel": case "email":
       return `<div class="${cls}"><label for="${c.k}">${esc(c.l)}${req}</label>${help}<input id="${c.k}" name="${c.k}" type="${c.t}" ${c.req ? "required" : ""} ${c.ph ? `placeholder="${esc(c.ph)}"` : ""} ${c.t === "number" ? 'min="0" step="any" inputmode="decimal"' : ""} ${c.list ? `list="${c.list}" autocomplete="on"` : ""}></div>`;
     case "textarea": return `<div class="${cls}"><label for="${c.k}">${esc(c.l)}${req}</label>${help}<textarea id="${c.k}" name="${c.k}" ${c.req ? "required" : ""}></textarea></div>`;
@@ -218,6 +217,8 @@ function renderForm(key) {
   if (phaseVal) { const r = $(`input[name=phase][value="${phaseVal}"]`); if (r) { r.checked = true; document.querySelectorAll("input[name=phase]").forEach(i => { if (!i.checked) i.closest("label").style.display = "none"; }); } }
   const lien = new URLSearchParams(location.search);   // liens préremplis (ex. lycee=mamie)
   Object.entries(f.prefill || {}).forEach(([param, [champ, valeurs]]) => { const v = valeurs[lien.get(param)], el = $(`select[name=${champ}]`); if (v && el) el.value = v; });
+  const moi = lien.get("moi") && profil() && profil().type === "eleve" && key === "eval" ? profil() : null;   // évaluation faite par l'élève lui-même : identité reprise de son inscription
+  if (moi) { [["etab", moi.etab], ["classe", moi.classe], ["nom", (moi.nom + " " + moi.prenom).trim()]].forEach(([n, v]) => { const el = $(`input[name=${n}]`); if (el) { el.value = v; el.readOnly = true; } }); }
   f.champs.filter(c => c.t === "rows").forEach(c => { const t = $(`[data-rows=${c.k}]`); for (let i = 0; i < 5; i++) addRow(c, t); $(`.addrow[data-k=${c.k}]`).onclick = () => addRow(c, t); });
   const majEleves = () => { const g = store.get("ndc_eleves", {}), k = ["etab", "classe"].map(n => { const i = $(`input[name=${n}]`); return i ? i.value.trim().toLowerCase() : ""; }).join("|"); $("#eleves").innerHTML = (g[k] || []).map(n => `<option value="${esc(n)}">`).join(""); };
   ["etab", "classe"].forEach(n => { const i = $(`input[name=${n}]`); if (i) i.addEventListener("input", majEleves); }); majEleves();
@@ -251,6 +252,7 @@ function collect(key, form) {
   const manque = (t, el, msg, ligne) => miss.push({ t, el, msg, ligne });
   for (const c of f.champs) {
     if (c.t === "section") continue;
+    if (c.t === "fixe") { data[c.k] = c.v; continue; }
     if (c.t === "likert") {
       c.rows.forEach((r, i) => {
         const n = c.k + (i + 1), v = form.querySelector(`input[name="${n}"]:checked`);
@@ -321,7 +323,8 @@ async function submit(key, form) {
   }
   if (!res.ok) { window.UI ? UI.charge(btn, false, "Envoyer la fiche") : (btn.disabled = false); err.innerHTML = `<div class="warn" role="alert">${esc(res.error || "Erreur")}</div>`; return; }
   const f = FORMS[key], again = location.search;
-  if (f.profil) { store.set("ndc_profil", profilDepuis(f.profil, data)); bienvenue(form, f.profil, data, res); return; }
+  if (f.profil) { store.set("ndc_profil", profilDepuis(f.profil, data, res)); bienvenue(form, f.profil, data, res); return; }
+  if (key === "eval" && new URLSearchParams(location.search).get("moi")) { etapeFaite("eval_" + (new URLSearchParams(location.search).get("phase") === "apres" ? "apres" : "avant")); finEvaluation(form, res); return; }
   form.innerHTML = `<div class="bloc no-rv" style="padding-bottom:14px"><div class="ok centre"><svg class="coche" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="25"/><path d="M14 27l8 8 16-17"/></svg><h3 tabindex="-1" id="merci">${res.demo ? "Fiche complète (mode démonstration, non enregistrée)" : "Fiche enregistrée"}</h3>
     ${res.numero ? `<p style="font-size:18px">Numéro : <b>${esc(res.numero)}</b></p><p>Notez ce numéro : il identifie le dossier.</p>` : ""}
     <p>Merci ! ${["eval", "ens", "suivi"].includes(key) ? "Vous pouvez saisir l'élève suivant : l'établissement et la classe sont conservés." : ""}</p></div>
@@ -375,7 +378,7 @@ function montrerLogin(msg) {
 /* chargement : des blocs qui brillent à la place des chiffres, pour que la page ne paraisse jamais vide */
 const SQUELETTE = `<div class="sk t"></div><div class="kpis">${'<div class="sk"></div>'.repeat(8)}</div><div class="sk t"></div><div class="kpis">${'<div class="sk"></div>'.repeat(6)}</div><div class="sk l" style="margin-top:14px"></div>`;
 async function load(code, btn) {
-  if (notConfigured()) { montrerLogin("La base de données n'est pas encore connectée."); return; }
+  if (notConfigured()) { montrerLogin("La base de données n\'est pas encore connectée."); return; }
   if (btn && window.UI) UI.charge(btn, true, "Vérification…"); else $("#dash").innerHTML = SQUELETTE;
   const d = await appelApi({ action: "stats", code });
   if (!d.ok && btn && btn.id === "rf" && !/code/i.test(d.error || "")) {   // actualisation ratée (réseau, serveur lent) : on garde les chiffres à l'écran et on explique
@@ -469,9 +472,9 @@ function exporterCsv(L) {
 /* =====================================================================================================
    Parcours de la personne : accueil public → inscription (profil) → mon espace → quiz et examen
    ===================================================================================================== */
-const profilDepuis = (type, d) => type === "eleve"
-  ? { type, etab: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe }
-  : { type, nom: d.nom, tel: d.tel, formation: d.formation || "", mode: d.mode || "" };
+const profilDepuis = (type, d, res) => type === "eleve"
+  ? { type, etab: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe, numero: (res && res.numero) || "" }
+  : { type, nom: d.nom, tel: d.tel, formation: d.formation || "", structure: d.structure || "", numero: (res && res.numero) || "" };
 const prenomDe = p => String((p && (p.prenom || p.nom)) || "").trim().split(/\s+/)[0];
 const ICONE = {
   eleve: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 8 4 18l20 10 20-10L24 8z"/><path d="M12 24v10c0 3 6 6 12 6s12-3 12-6V24"/><path d="M44 18v12"/></svg>',
@@ -479,9 +482,9 @@ const ICONE = {
 };
 const CARTES_PROFIL = `<div class="profils">
   <a class="carte-profil" href="commencer.html?p=eleve" style="--k:0"><span class="pic">${ICONE.eleve}</span><h3>Je suis <em>élève</em></h3>
-    <p>Lycée Mamie Faitai ou lycée de Garçons Gnaléga. Tu choisis ton école, puis tu accèdes à tes quiz et à ton examen final.</p><span class="aller">M'inscrire comme élève</span></a>
+    <p>Tu es dans un lycée partenaire. Tu choisis ton école dans la liste, puis tu suis le parcours : cours, quiz corrigés et examen final.</p><span class="aller">M'inscrire comme élève</span></a>
   <a class="carte-profil" href="commencer.html?p=participant" style="--k:1"><span class="pic">${ICONE.participant}</span><h3>Je suis <em>participant(e)</em></h3>
-    <p>Tu suis une formation de BMT Green Academy, sur place ou à distance. Tu accèdes aux évaluations de ta formation.</p><span class="aller">M'inscrire comme participant</span></a></div>`;
+    <p>ONG, association, enseignant(e) ou particulier : tu suis le programme de sensibilisation La Noblesse du Cœur, où que tu sois en Côte d'Ivoire.</p><span class="aller">M'inscrire comme participant</span></a></div>`;
 
 /* installation sur l'écran d'accueil (Android / ordinateur : bouton natif ; iPhone : le mode d'emploi) */
 let inviteInstall = null;
@@ -495,19 +498,25 @@ function renderAccueil() {
   document.title = "La Noblesse du Cœur — évaluations en ligne";
   const p = profil(), nom = prenomDe(p);
   app().innerHTML = header() + BANDEAU("basilique", `
-    <span class="eyebrow" style="--k:0">Évaluations en ligne · Bingerville 2026-2027</span>
     <h1>La Noblesse du <em>Cœur</em></h1>
-    <p class="lead" style="--k:1">${p ? `Content de te revoir, ${esc(nom)}. Retrouve tes quiz, ton examen et tes résultats.` : "Inscris-toi, entraîne-toi avec les quiz, passe ton examen final et suis tes résultats. Tout se fait sur téléphone, en quelques minutes."}</p>
+    <p class="lead" style="--k:1">${p ? `Content de te revoir, ${esc(nom)}. Retrouve ton parcours, tes quiz, ton examen et tes résultats.` : "<strong>Évaluation en ligne</strong> : inscris-toi, étudie les cours, entraîne-toi avec les quiz corrigés, passe ton examen final et suis tes résultats. Tout se fait sur téléphone, à ton rythme."}</p>
     <div class="cta" style="--k:2">${p ? '<a class="btn or" href="espace.html">Entrer dans mon espace</a>' : '<a class="btn or" href="commencer.html">Commencer</a>'}<a class="btn clair" href="#parcours">Comment ça marche</a></div>`) + `
   <main id="contenu" tabindex="-1">${DEMO() ? `<div class="wrap">${DEMO()}</div>` : ""}
     <section class="bande" id="commencer"><div class="wrap"><div class="etape-tete"><div><h2>${p ? "Ton <em>espace</em>" : "Qui <em>es-tu</em> ?"}</h2><p>${p ? "Tu es déjà inscrit(e) sur cet appareil." : "Choisis ton profil : le site te montrera uniquement ce qui te concerne."}</p></div></div>
       ${p ? `<div class="actions"><a class="btn" href="espace.html">Entrer dans mon espace</a><a class="btn sec" href="commencer.html">Ce n'est pas moi</a>${INSTALLER}</div>` : CARTES_PROFIL}</div></section>
     <section class="bande sable" id="parcours"><div class="wrap"><div class="etape-tete"><div><h2>Ton parcours en <em>trois étapes</em></h2><p>Simple, rapide, et tes résultats arrivent directement à l'équipe du programme.</p></div></div>
       <ol class="pas">
-        <li style="--k:0"><i>1</i><h3>Je m'inscris</h3><p>Mon école ou ma formation, mon nom : une minute suffit.</p></li>
-        <li style="--k:1"><i>2</i><h3>Je m'entraîne</h3><p>Des quiz module par module, avec la correction expliquée après chaque question.</p></li>
+        <li style="--k:0"><i>1</i><h3>Je m'inscris</h3><p>J'indique mon école, ma classe et mon nom : une minute suffit.</p></li>
+        <li style="--k:1"><i>2</i><h3>J'étudie et je m'entraîne</h3><p>Pour chaque module : le cours d'abord, puis les questions avec la correction expliquée.</p></li>
         <li style="--k:2"><i>3</i><h3>Je passe l'examen</h3><p>L'examen final est corrigé automatiquement. Ma copie est transmise à la direction.</p></li></ol>
       <div class="actions" style="justify-content:center">${INSTALLER}</div></div></section>
+    <section class="bande" id="asynchrone"><div class="wrap"><div class="etape-tete"><div><h2>Une formation <em>asynchrone</em></h2><p>Tu avances à ton rythme, où que tu sois.</p></div></div>
+      <div class="pas">
+        <div class="pas-i" style="--k:0"><h3>Pas d'horaire imposé</h3><p>Les supports sont disponibles dès l'inscription. Tu les lis et tu t'exerces quand tu veux, sur téléphone.</p></div>
+        <div class="pas-i" style="--k:1"><h3>Corrigés immédiats</h3><p>Chaque quiz explique la bonne réponse, même quand tu te trompes. Tu peux recommencer autant que tu veux.</p></div>
+        <div class="pas-i" style="--k:2"><h3>Examen à date annoncée</h3><p>Seul l'examen final s'ouvre à une date communiquée par l'équipe. Il est corrigé automatiquement.</p></div></div></div></section>
+    <section class="bande sable" id="plateformes"><div class="wrap"><div class="etape-tete"><div><h2>La <em>plateforme éducative</em></h2><p>Les autres formations de BMT Green Academy se trouvent sur sa plateforme éducative.</p></div></div>
+      <div class="actions">${lienPlateforme(LIENS.academie, "Accéder à la plateforme éducative", "or")}${lienPlateforme(LIENS.ong, "Site de l'ONG Lueur d'Espoir")}</div></div></section>
   </main>` + PARTENAIRES + FOOT;
   brancherInstaller();
   UIok();
@@ -535,7 +544,7 @@ function bienvenue(form, type, data, res) {
     <p class="eyebrow">${res.demo ? "Mode démonstration : non enregistré" : "Inscription enregistrée"}</p>
     <h2 tabindex="-1" id="merci">Bienvenue, <em>${esc(nom)}</em> !</h2>
     <p class="lead-b">${type === "eleve" ? "Ton espace est prêt : quiz d'entraînement et examen final de La Noblesse du Cœur." : "Ton espace est prêt : retrouve ici les évaluations de ta formation."}</p>
-    ${res.numero ? `<p>Ton numéro de dossier : <b>${esc(res.numero)}</b>. Garde-le précieusement.</p>` : ""}
+    ${res.numero ? `<p class="idu-carte">Ton identifiant unique<b>${esc(res.numero)}</b><small>Il relie ton inscription, tes évaluations, tes quiz, ton examen et ton certificat. Garde-le précieusement.</small></p>` : ""}
     <div class="actions" style="justify-content:center"><a class="btn or" href="espace.html">Entrer dans mon espace</a></div></div>`;
   jauge(1); const pc = $("#pc"); if (pc) pc.textContent = "100 %";
   scrollTo({ top: 0, behavior: UI_REDUIT() ? "auto" : "smooth" });
@@ -565,28 +574,91 @@ const anneau = (p, texte, cls = "") => `<div class="anneau ${cls}" style="--p:${
 const allumerAnneaux = () => requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll(".anneau").forEach(a => a.classList.add("go"))));
 const puce = (v, l) => `<div class="puce-stat"><b>${v}</b><span>${l}</span></div>`;
 
-/* ---------------- mon espace : ce que voit la personne dépend de son profil ---------------- */
+/* ---------- parcours automatisé de l'élève : étapes faites (gardées sur l'appareil) ---------- */
+const etapes = () => store.get("ndc_etapes", {});
+const etapeFaite = k => { const e = etapes(); e[k] = Date.now(); store.set("ndc_etapes", e); };
+function finEvaluation(form, res) {
+  const apres = new URLSearchParams(location.search).get("phase") === "apres";
+  form.innerHTML = `<div class="bloc no-rv bienvenue"><svg class="coche" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="25"/><path d="M14 27l8 8 16-17"/></svg>
+    <h2 tabindex="-1" id="merci">${apres ? "Parcours <em>terminé</em>" : "Évaluation <em>enregistrée</em>"}</h2>
+    <p class="lead-b">${apres ? "Merci. Tes réponses sont transmises à l'équipe du programme. Ton certificat sera préparé après la validation officielle des résultats." : "Merci. Tu peux maintenant lire les cours, puis t'entraîner avec les quiz."}</p>
+    <div class="actions" style="justify-content:center"><a class="btn or" href="espace.html">Retour à mon espace</a></div></div>`;
+  jauge(1); const pc = $("#pc"); if (pc) pc.textContent = "100 %";
+  scrollTo({ top: 0, behavior: UI_REDUIT() ? "auto" : "smooth" });
+  const m = $("#merci"); if (m) m.focus({ preventScroll: true });
+}
+
+/* ---------- images des modules (affiches) et fiches récapitulatives ---------- */
+const IMG_MODULE = {
+  a1m1: { c: "mod-a1m1" }, a1m2: { c: "mod-a1m2" }, a1m3: { c: "mod-a1m3" }, a1m4: { c: "mod-a1m4" },
+  a2m1: { c: "mod-a2m1", f: ["fiche-a2m1"] }, a2m2: { c: "mod-a2m2", f: ["fiche-a2m2"] }, a2m3: { c: "mod-a2m3", f: ["fiche-a2m3"] }, a2m4: { c: "mod-a2m4", f: ["fiche-a2m4"] },
+  a2m5: { c: "mod-a2m5" }, a2m6: { c: "mod-a2m6", f: [1, 2, 3, 4, 5, 6].map(n => "fiche-a2m6-" + n) },
+};
+
+/* ---------- bibliothèque : cours, guides, fiches pratiques, carnets (PDF) ---------- */
+const BIBLIO = [
+  { id: "axe1", axe: "Axe 1 · L'art de la paix", intro: "Savoir-vivre, politesse, civisme et vivre ensemble : les 4 modules de l'Axe 1.", docs: [
+    ["axe1-art-de-la-paix", "Le cours : L'art de la paix", "Les 4 modules de l'Axe 1.", "25 Mo"],
+    ["axe1-guide-ambassadeur", "Guide : L'art de la dignité", "Guide de l'Ambassadeur de la Paix, de la Fraternité et de la Dignité.", "13 Mo"],
+    ["axe1-preserver-sa-vie", "Sensibilisation : Préserver sa vie", "Document de sensibilisation, complément du cours.", "4 Mo"]] },
+  { id: "axe2", axe: "Axe 2 · L'art de l'impact", intro: "Influence, éthique, réseaux sociaux et liberté d'expression : les 6 modules de l'Axe 2.", docs: [
+    ["axe2-cours", "Le cours : L'art de l'impact", "Les 6 modules de l'Axe 2.", "32 Mo"],
+    ["axe2-manuel-droit-numerique", "Manuel de l'élève : Droit numérique", "Droit numérique et citoyenneté digitale.", "13 Mo"],
+    ["axe2-fiches-pratiques", "Fiches pratiques", "Des fiches à appliquer tout de suite.", "2 Mo"],
+    ["axe2-carnets-de-suivi", "Carnets de suivi", "Pour suivre ta progression pas à pas.", "2 Mo"]] },
+];
+const coursAxe = id => (BIBLIO.find(c => c.id === id) || BIBLIO[0]).docs[0];
+function renderBibliotheque() {
+  const p = profil();
+  if (!p) { location.replace("commencer.html"); return; }
+  document.title = "Bibliothèque — La Noblesse du Cœur";
+  app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Bibliothèque</span><h1>Cours, guides et <em>fiches</em></h1>
+    <p>Tous les documents du programme, en PDF. Ouvre-les quand tu veux, à ton rythme. Les cours sont aussi proposés module par module dans le parcours éducatif.</p></div></div></section>
+  <main class="wrap" id="contenu" tabindex="-1">
+    ${BIBLIO.map(c => `<section class="axe"><h2 class="axe-t">${esc(c.axe)}<small><a class="lien-cours" href="quiz.html#${c.id}">Aller aux modules</a></small></h2><p class="help" style="margin:-6px 0 12px">${esc(c.intro)}</p>
+      <div class="liste">${c.docs.map(([f, t, d, taille]) => `<a class="item" href="pdf/cours/${f}.pdf" target="_blank" rel="noopener"><span class="vignette pdf" aria-hidden="true"><b>PDF</b></span><span class="txt"><b>${esc(t)}</b><span>${esc(d)} · ${taille}</span></span><span class="chev" aria-hidden="true"></span></a>`).join("")}</div></section>`).join("")}
+    <p class="help" style="margin-top:22px">Les fichiers sont volumineux : sur téléphone, télécharge-les une fois avec le wifi si tu peux.</p>
+    <div class="actions"><a class="btn" href="quiz.html">Parcours éducatif et quiz</a><a class="btn sec" href="espace.html">Retour à mon espace</a></div></main>` + FOOT;
+  UIok();
+}
+
+/* ---------------- mon espace : le parcours automatisé, selon le profil ---------------- */
+const lienPlateforme = (url, txt, cls = "sec") => url ? `<a class="btn ${cls}" href="${esc(url)}" target="_blank" rel="noopener">${txt}</a>` : "";
+const EXPLICATION_ASYNCHRONE = `<div class="asynchrone"><h3>Une formation <em>asynchrone</em></h3>
+  <p>Pas de cours à heure fixe : tu reçois les supports dès ton inscription et tu avances à ton rythme, quand tu veux, depuis ton téléphone. Les corrigés s'affichent tout de suite. Seule l'ouverture de l'examen final est annoncée par l'équipe.</p></div>`;
 function renderEspace() {
   const p = profil();
   if (!p) { location.replace("commencer.html"); return; }
   document.title = "Mon espace — La Noblesse du Cœur";
-  const ac = acces(p), B = bilanQuiz(), examen = store.get("ndc_examen_fait", null);
-  const ident = p.type === "eleve" ? `${esc(p.etab)} · ${esc(p.classe)}` : esc(String(p.formation || "Participant(e) aux formations"));
-  const etape = (n, etat, t, d, href) => `<li class="etat-${etat}" style="--k:${n}"><span class="pastille">${etat === "fait" ? "✓" : n}</span><div><b>${t}</b><span>${d}</span></div>${href ? `<a class="btn ${etat === "fait" ? "sec" : "or"} petit" href="${href}">${etat === "fait" ? "Revoir" : "Ouvrir"}</a>` : ""}</li>`;
-  const suite = ac.quiz && B.suivant ? `<a class="continuer" href="quiz.html?m=${esc(B.suivant.id)}"><span class="cont-eyebrow">${B.essayes.length ? "Continuer" : "Commencer"}</span><b>${esc(B.suivant.titre)}</b><span>${B.suivant.questions.length} questions · environ ${minutes(B.suivant)} min</span><i aria-hidden="true">→</i></a>` : "";
+  const ac = acces(p), B = bilanQuiz(), E = etapes(), examen = store.get("ndc_examen_fait", null), eleve = p.type === "eleve";
+  const idu = p.numero ? `<span class="idu">Identifiant : ${esc(p.numero)}</span>` : "";
+  const ident = eleve ? `${esc(p.etab)} · ${esc(p.classe)}` : esc(String(p.structure || p.formation || "Participant(e)"));
+  /* le parcours : chaque étape s'ouvre à la suivante, tout est automatique */
+  const parcours = [
+    { t: "Inscription", d: "Ton profil et ton identifiant unique sont enregistrés.", fait: true },
+    ...(eleve ? [{ t: "Évaluation initiale", d: "7 affirmations sur ton comportement : le point de départ.", fait: !!E.eval_avant, href: "form.html?f=eval&phase=avant&moi=1" }] : []),
+    { t: "Parcours éducatif et quiz", d: `Pour chaque module : le cours, puis les questions corrigées. ${B.maitrises.length} module${B.maitrises.length > 1 ? "s" : ""} maîtrisé${B.maitrises.length > 1 ? "s" : ""} sur ${B.total}${B.moyenne != null ? " · moyenne " + B.moyenne + " %" : ""}.`, fait: B.total > 0 && B.maitrises.length === B.total, href: B.suivant ? "quiz.html?m=" + B.suivant.id : "quiz.html", quiz: true },
+    ...(ac.examen ? [{ t: "Examen final noté", d: examen ? "Ta copie est envoyée à la direction." : "20 questions, une seule tentative, corrigée automatiquement.", fait: !!examen, href: "examen.html" },
+      { t: "Évaluation finale", d: "Les mêmes 7 affirmations : on mesure ta progression.", fait: !!E.eval_apres, href: "form.html?f=eval&phase=apres&moi=1", apres: !!examen }] : []),
+  ];
+  const actuelle = parcours.findIndex(e => !e.fait);
+  const etapeHtml = (e, n) => { const etat = e.fait ? "fait" : n === actuelle ? "en-cours" : "a-venir", ouvert = e.href && (e.apres === undefined || e.apres);
+    return `<li class="etat-${etat}" style="--k:${n}"><span class="pastille">${e.fait ? "✓" : n + 1}</span><div><b>${e.t}</b><span>${e.d}</span></div>${ouvert && n > 0 ? `<a class="btn ${e.fait ? "sec" : "or"} petit" href="${e.href}">${e.fait ? "Revoir" : n === actuelle ? "Continuer" : "Ouvrir"}</a>` : e.apres === false ? '<span class="verrou">Après l\'examen</span>' : ""}</li>`; };
+  const cible = actuelle >= 0 ? parcours[actuelle] : null;
+  const suite = cible && cible.href && cible.apres !== false ? `<a class="continuer" href="${cible.href}"><span class="cont-eyebrow">Prochaine étape</span><b>${cible.quiz && B.suivant ? B.suivant.titre : cible.t}</b><span>${cible.quiz && B.suivant ? "Parcours éducatif : le cours, puis les questions." : cible.d}</span><i aria-hidden="true">→</i></a>` : "";
+  const carteRes = (href, t, d, ext) => `<a class="item" href="${href}"${ext ? ' target="_blank" rel="noopener"' : ""}><span class="vignette pdf" aria-hidden="true"><b>${ext ? "WEB" : "PDF"}</b></span><span class="txt"><b>${t}</b><span>${d}</span></span><span class="chev" aria-hidden="true"></span></a>`;
   app().innerHTML = header() + `
-  <section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Mon espace</span><h1>Bonjour, <em>${esc(prenomDe(p))}</em></h1><p>${ident}</p></div>
-    ${ac.quiz ? `<div class="qtete-anneau">${anneau(B.pct, Math.round(B.pct * 100) + " %", "petit")}<small>${B.maitrises.length} / ${B.total} modules maîtrisés</small></div>` : ""}</div></section>
+  <section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Mon espace</span><h1>Bonjour, <em>${esc(prenomDe(p))}</em></h1><p>${ident}</p>${idu}</div>
+    <div class="qtete-anneau">${anneau(B.pct, Math.round(B.pct * 100) + " %", "petit")}<small>${B.maitrises.length} / ${B.total} modules maîtrisés</small></div></div></section>
   <main class="wrap" id="contenu" tabindex="-1">
     ${suite}
-    ${ac.quiz || ac.examen ? `<h2 class="sec">Ton parcours</h2><ol class="etapes-esp">
-      ${etape(1, "fait", "Inscription", "Ton profil est enregistré.", "")}
-      ${ac.quiz ? etape(2, B.maitrises.length === B.total && B.total ? "fait" : "en-cours", "Quiz d'entraînement", `${B.maitrises.length} module${B.maitrises.length > 1 ? "s" : ""} maîtrisé${B.maitrises.length > 1 ? "s" : ""} sur ${B.total}${B.moyenne != null ? " · moyenne " + B.moyenne + " %" : ""}`, "quiz.html") : ""}
-      ${ac.examen ? etape(3, examen ? "fait" : "a-venir", "Examen final noté", examen ? "Ta copie est envoyée à la direction." : "20 questions, une seule tentative, corrigée automatiquement.", "examen.html") : ""}</ol>` : `<h2 class="sec">Tes formations</h2><div class="liste"><div class="item"><span class="txt"><b>Évaluations de ta formation</b><span>L'équipe BMT publiera ici les quiz et les évaluations de ta formation. Reviens bientôt.</span></span></div></div>`}
-    ${ac.quiz && B.essayes.length ? `<h2 class="sec">Tes scores</h2><div class="mres">${B.mods.map(m => { const s = B.best[m.id], e = etatModule(B.best, m); return `<a class="mres-l etat-${e}" href="quiz.html?m=${esc(m.id)}"><span>${esc(m.titre)}</span><div class="mbar"><i style="--w:${(s || 0) / 100}"></i></div><b>${s == null ? "—" : s + " %"}</b></a>`; }).join("")}</div>` : ""}
-    <div class="actions" style="margin-top:26px">${INSTALLER}<button type="button" class="btn sec" id="autre">Ce n'est pas moi</button></div>
+    <h2 class="sec">Ton parcours</h2><ol class="etapes-esp">${parcours.map(etapeHtml).join("")}</ol>
+    ${B.essayes.length ? `<h2 class="sec">Tes scores</h2><div class="mres">${B.mods.map(m => { const s = B.best[m.id], e = etatModule(B.best, m); return `<a class="mres-l etat-${e}" href="quiz.html?m=${esc(m.id)}"><span>${esc(m.titre)}</span><div class="mbar"><i style="--w:${(s || 0) / 100}"></i></div><b>${s == null ? "—" : s + " %"}</b></a>`; }).join("")}</div>` : ""}
+    <h2 class="sec">Ressources</h2><div class="liste">${carteRes("bibliotheque.html", "Bibliothèque", "Les cours, le guide, les fiches pratiques et les carnets de suivi.")}${LIENS.academie ? carteRes(LIENS.academie, "Plateforme éducative BMT Green Academy", "Les autres formations de BMT Green Academy.", true) : ""}${LIENS.ong ? carteRes(LIENS.ong, "ONG Lueur d'Espoir", "Le site de l'ONG et ses coordonnées.", true) : ""}</div>
+    ${EXPLICATION_ASYNCHRONE}
+    <div class="actions" style="margin-top:22px">${INSTALLER}<button type="button" class="btn sec" id="autre">Ce n'est pas moi</button></div>
     <p class="help">Astuce : pour garder le site sur ton téléphone, ouvre le menu du navigateur et choisis « Ajouter à l'écran d'accueil ».</p></main>` + FOOT;
-  $("#autre").onclick = () => { try { localStorage.removeItem("ndc_profil"); } catch (e) {} location.href = "commencer.html"; };
+  $("#autre").onclick = () => { try { ["ndc_profil", "ndc_etapes", "ndc_examen_fait", "ndc_parcours"].forEach(k => localStorage.removeItem(k)); } catch (e) {} location.href = "commencer.html"; };
   brancherInstaller(); allumerAnneaux();
   UIok();
 }

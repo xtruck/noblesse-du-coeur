@@ -22,8 +22,9 @@ var ONGLET = { engagement: 'Responsables', eval: 'Évaluation élève', ens: 'Gr
    (jamais sur GitHub : le site public n'a donc aucun moyen de connaître les réponses).
    L'examen ne s'ouvre que si la propriété du script EXAMEN_OUVERT vaut « oui ». */
 var ONGLET_EXAMEN = 'Examens';
-var EXAMEN_SEUIL_PCT = 70;          // PROVISOIRE : seuil de réussite en %, à confirmer par la direction
-var EXAMEN_NB_CERTIFICATS = 150;    // certificats prévus par lycée (budget)
+var EXAMEN_SEUIL_PCT = 70;          // feuille de route : seuil de validation 70/100
+var EXAMEN_DISTINCTION_PCT = 80;    // feuille de route : distinction (Ambassadeur Junior) à partir de 80/100
+var EXAMEN_NB_CERTIFICATS = 200;    // feuille de route : les 200 meilleurs, classement général des DEUX lycées réunis
 var EXAMEN_AFFICHER_NOTE = false;   // false : l'élève voit « copie enregistrée », les notes restent pour la direction
 
 /* Limites contre les envois abusifs (le site est public) */
@@ -79,11 +80,16 @@ function doPost(e) {
       if (colCle > 0) {
         var trouve = sh.getRange(2, colCle, sh.getLastRow() - 1, 1).createTextFinder(d.cle).matchEntireCell(true).matchCase(true).findNext();
         if (trouve) {
-          var colGr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].indexOf('groupe') + 1;
-          if (colGr > 0 && d.groupe) sh.getRange(trouve.getRow(), colGr).setValue(d.groupe);   // un groupe corrigé met à jour la ligne existante
-          return json_(res);                                                                    // déjà inscrit : succès silencieux, pas de doublon
+          var entete = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0], colNum = entete.indexOf('numero') + 1;
+          if (colNum > 0) res.numero = String(sh.getRange(trouve.getRow(), colNum).getValue() || '');   // déjà inscrit : on redonne son identifiant
+          return json_(res);                                                                           // succès silencieux, pas de doublon
         }
       }
+      /* Identifiant unique de l'élève, relié à son évaluation, ses quiz, son examen et son certificat. Compteur gardé dans les propriétés du script (jamais deux fois le même numéro). */
+      var props = PropertiesService.getScriptProperties(), compte = Number(props.getProperty('COMPTEUR_ELEVES') || 0) + 1;
+      props.setProperty('COMPTEUR_ELEVES', String(compte));
+      d = Object.assign({ numero: 'NDC-' + new Date().getFullYear() + '-' + ('0000' + compte).slice(-4) }, d);
+      res.numero = d.numero;
     }
     var lignes = [d];
     if (Array.isArray(d.eleves)) {                       // liste des retenus : une ligne par élève
@@ -141,7 +147,7 @@ function stats_(code) {
   var ss = SpreadsheetApp.getActiveSpreadsheet(), data = {};
   Object.keys(ONGLET).forEach(function (k) { data[k] = lignes_(ss.getSheetByName(ONGLET[k])); });
   data.examens = lignes_(ss.getSheetByName(ONGLET_EXAMEN));   // hors de ONGLET : aucun formulaire public ne peut y écrire
-  var s = calculer(data, { seuilPct: EXAMEN_SEUIL_PCT, nbCertificats: EXAMEN_NB_CERTIFICATS });
+  var s = calculer(data, { seuilPct: EXAMEN_SEUIL_PCT, distinctionPct: EXAMEN_DISTINCTION_PCT, nbCertificats: EXAMEN_NB_CERTIFICATS });
   s.maj = Utilities.formatDate(new Date(), 'Africa/Abidjan', 'dd/MM/yyyy HH:mm');
   return json_(s);
 }
@@ -179,7 +185,7 @@ function examenCorriger_(banque, reponses) {
 function examenNoter_(d) {
   var B = examenBanque_();
   if (!B.length || !examenOuvert_()) return json_({ ok: false, error: 'L\'examen n\'est pas ouvert.' });
-  var id = propre_({ etablissement: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe });
+  var id = propre_({ etablissement: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe, numero: d.numero });
   var manque = ['etablissement', 'nom', 'prenom', 'classe'].filter(function (k) { return !id[k] || !String(id[k]).trim(); });
   if (manque.length) return json_({ ok: false, error: 'Renseignez votre établissement, nom, prénoms et classe.' });
   if (!d.reponses || typeof d.reponses !== 'object' || Array.isArray(d.reponses)) return json_({ ok: false, error: 'Copie illisible' });
@@ -193,7 +199,7 @@ function examenNoter_(d) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sh = ss.getSheetByName(ONGLET_EXAMEN) || ss.insertSheet(ONGLET_EXAMEN);
-    var cle = cleEleve_(id), entete = ['horodatage', 'cle', 'etablissement', 'nom', 'prenom', 'classe', 'note', 'total', 'axe1', 'axe2', 'pct', 'reponses'];
+    var cle = cleEleve_(id), entete = ['horodatage', 'cle', 'numero', 'etablissement', 'nom', 'prenom', 'classe', 'note', 'total', 'axe1', 'axe2', 'pct', 'reponses'];
     if (sh.getLastRow() < 1) {
       sh.getRange(1, 1, 1, entete.length).setValues([entete]).setFontWeight('bold').setBackground('#14472f').setFontColor('#ffffff');
       sh.setFrozenRows(1);
@@ -203,7 +209,7 @@ function examenNoter_(d) {
     }
     var r = examenCorriger_(B, rep);
     var compact = B.map(function (q) { return q.id + ':' + (rep[q.id] === undefined ? '-' : rep[q.id]); }).join(' ');
-    var ligne = [new Date(), cle, id.etablissement, id.nom, id.prenom, id.classe, r.note, r.total, r.axe1, r.axe2, r.pct, compact];
+    var ligne = [new Date(), cle, id.numero || '', id.etablissement, id.nom, id.prenom, id.classe, r.note, r.total, r.axe1, r.axe2, r.pct, compact];
     var plage = sh.getRange(sh.getLastRow() + 1, 1, 1, entete.length);
     ligne.forEach(function (v, j) { if (typeof v === 'string' && /^[=+\-@\t\r]/.test(v)) plage.getCell(1, j + 1).setNumberFormat('@'); });
     plage.setValues([ligne]);
@@ -228,7 +234,7 @@ function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).se
 /* ---------- calculs (fonction pure, testée dans tests/calculer.test.js) ---------- */
 function calculer(D, opts) {
   opts = opts || {};
-  var seuil = typeof opts.seuilPct === 'number' ? opts.seuilPct : 70, nbCert = typeof opts.nbCertificats === 'number' ? opts.nbCertificats : 150;
+  var seuil = typeof opts.seuilPct === 'number' ? opts.seuilPct : 70, distinction = typeof opts.distinctionPct === 'number' ? opts.distinctionPct : 80, nbCert = typeof opts.nbCertificats === 'number' ? opts.nbCertificats : 200;
   function num(x) { return x === '' || x === null || x === undefined || isNaN(Number(x)) ? null : Number(x); }
   function moy(a) { a = a.filter(function (x) { return x !== null; }); return a.length ? a.reduce(function (s, x) { return s + x; }, 0) / a.length : null; }
   function r2(x) { return x === null ? null : Math.round(x * 100) / 100; }
@@ -314,20 +320,22 @@ function calculer(D, opts) {
   out.ong = { total: O.length, handicap: compte(O, 'handicap'), besoins: compte(O, 'besoins'), sexe: compte(O, 'sexe'), commune: compte(O, 'commune') };
   out.autres = { responsables: (D.engagement || []).length, rapports: (D.rapport || []).length, pv: (D.pv || []).length,
                  retenus: (D.liste || []).length, inscriptions: I.length, formations: compte(I, 'formation') };
-  /* Examen final noté : copies, moyenne, réussite (>= seuil) et nombre de certificats par lycée */
+  /* Examen final noté : copies, moyenne, réussite (>= seuil), distinction (>= 80) et classement général des meilleurs (deux lycées réunis) */
   var X = (D.examens || []).map(function (r) {
     var tot = num(r.total) || 0, note = num(r.note) || 0, p = tot ? Math.round(note / tot * 1000) / 10 : 0;
     return { nom: String(r.nom || '').trim(), prenom: String(r.prenom || '').trim(), etab: String(r.etablissement || '').trim(), classe: String(r.classe || '').trim(),
-             note: note, total: tot, axe1: num(r.axe1) || 0, axe2: num(r.axe2) || 0, pct: p, reussi: p >= seuil };
+             numero: String(r.numero || ''), note: note, total: tot, axe1: num(r.axe1) || 0, axe2: num(r.axe2) || 0, pct: p, reussi: p >= seuil, distinction: p >= distinction };
   }).sort(function (a, b) { return b.pct - a.pct || (a.etab + a.nom).localeCompare(b.etab + b.nom); });
+  X.forEach(function (x, i) { x.rang = i + 1; x.retenu = x.reussi && x.rang <= nbCert; });   // classement général : égalités départagées par l'ordre alphabétique, à trancher par la coordination
   var xe = {};
   X.forEach(function (x) { var k = x.etab.toLowerCase(); (xe[k] = xe[k] || { etab: x.etab, L: [] }).L.push(x); });
   var nbOk = X.filter(function (x) { return x.reussi; }).length;
-  out.examens = { copies: X.length, seuilPct: seuil, nbCertificats: nbCert,
+  out.examens = { copies: X.length, seuilPct: seuil, distinctionPct: distinction, nbCertificats: nbCert,
+    distinctions: X.filter(function (x) { return x.distinction; }).length, retenus: X.filter(function (x) { return x.retenu; }).length,
     moyennePct: X.length ? r2(moy(X.map(function (x) { return x.pct; }))) : null,
     reussis: nbOk, pctReussite: pc(nbOk, X.length),
     parEtab: Object.keys(xe).sort().map(function (k) { var L = xe[k].L, ok = L.filter(function (x) { return x.reussi; }).length;
-      return { etab: xe[k].etab, n: L.length, moyennePct: r2(moy(L.map(function (x) { return x.pct; }))), reussis: ok, certificats: Math.min(ok, nbCert) }; }),
+      return { etab: xe[k].etab, n: L.length, moyennePct: r2(moy(L.map(function (x) { return x.pct; }))), reussis: ok, distinctions: L.filter(function (x) { return x.distinction; }).length, retenus: L.filter(function (x) { return x.retenu; }).length }; }),
     liste: X };
   var EI = D.eleve_inscr || [], g = {};                 // campagne de sensibilisation : élèves inscrits par lycée et par groupe
   EI.forEach(function (r) { var k = String(r.etablissement || '') + '||' + String(r.groupe || ''); g[k] = (g[k] || 0) + 1; });
@@ -348,9 +356,9 @@ function calculer(D, opts) {
   function pers(r, type) {
     var k = type + '|' + [r.etablissement, r.nom, r.prenom, r.classe || r.tel].map(norm).join('|');
     return PP[k] || (PP[k] = { type: type, nom: String(r.nom || '').trim(), prenom: String(r.prenom || '').trim(), etab: String(r.etablissement || '').trim(),
-      classe: String(r.classe || '').trim(), formation: '', quizEssais: 0, quizTot: 0, modules: {}, examPct: null, examReussi: null, tel: String(r.tel || '').trim() });
+      classe: String(r.classe || '').trim(), formation: '', quizEssais: 0, quizTot: 0, modules: {}, examPct: null, examReussi: null, tel: String(r.tel || '').trim(), numero: String(r.numero || '') });
   }
-  EI.forEach(function (r) { pers(r, 'Élève'); });
+  EI.forEach(function (r) { var o = pers(r, 'Élève'); if (r.numero) o.numero = String(r.numero); });
   I.forEach(function (r) { var o = pers({ nom: r.nom, tel: r.tel }, 'Participant'); o.formation = String(r.formation || ''); o.prenom = ''; o.tel = String(r.tel || '').trim(); });
   QZ.forEach(function (r) { var o = pers(r, r.profil === 'participant' ? 'Participant' : 'Élève'); o.quizEssais++; o.quizTot += num(r.pct) || 0;
     var mk = String(r.module || ''), mm = o.modules[mk] = o.modules[mk] || { titre: String(r.titre || mk), n: 0, best: 0, dernier: 0 };
@@ -358,7 +366,7 @@ function calculer(D, opts) {
   X.forEach(function (x) { var o = pers({ etablissement: x.etab, nom: x.nom, prenom: x.prenom, classe: x.classe }, 'Élève'); o.examPct = x.pct; o.examReussi = x.reussi; });
   out.personnes = Object.keys(PP).map(function (k) { var o = PP[k];
     return { type: o.type, nom: o.nom, prenom: o.prenom, etab: o.etab, classe: o.classe, formation: o.formation, quizEssais: o.quizEssais,
-             quizMoy: o.quizEssais ? Math.round(o.quizTot / o.quizEssais) : null, examPct: o.examPct, examReussi: o.examReussi, tel: o.tel,
+             quizMoy: o.quizEssais ? Math.round(o.quizTot / o.quizEssais) : null, examPct: o.examPct, examReussi: o.examReussi, tel: o.tel, numero: o.numero,
              modules: Object.keys(o.modules).sort().map(function (k) { return { module: k, titre: o.modules[k].titre, n: o.modules[k].n, best: o.modules[k].best, dernier: o.modules[k].dernier }; }) };
   }).sort(function (a, b) { return (a.type + a.etab + a.classe + a.nom).localeCompare(b.type + b.etab + b.classe + b.nom); }).slice(0, 3000);
   return out;

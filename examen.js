@@ -70,7 +70,7 @@ function renderExamen() {
   async function envoyer() {
     if (envoi) return; envoi = true;
     const b = $("#envoyer"); window.UI ? UI.charge(b, true, "Envoi de ta copie…") : (b.disabled = true);
-    const r = await appelApi({ action: "examen_noter", etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe, reponses: rep });
+    const r = await appelApi({ action: "examen_noter", etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe, numero: pr.numero || "", reponses: rep });
     envoi = false;
     if (r.ok || r.deja) { store.set(CLE_EXAMEN_FAIT, { cle: cleLocale(pr), note: r.note ?? null, total: r.total ?? null, reussi: r.reussi ?? null }); termine(false, r); return; }
     $("#msg").innerHTML = `<div class="warn" role="alert">${esc(r.error || "Envoi impossible.")} Tes réponses sont conservées : tu peux réessayer.</div>`;
@@ -87,7 +87,8 @@ function renderExamen() {
       <h2 tabindex="-1" id="enonce">${doublon ? "Une copie existe <em>déjà</em>" : dejaFait ? "Ta copie est <em>enregistrée</em>" : "Copie <em>envoyée</em>"}</h2>
       <p class="lead-b">${doublon ? "Une seule tentative est permise : la copie envoyée précédemment est conservée." : "Merci, " + esc(pr.prenom || pr.nom) + ". Ta copie a été corrigée par le serveur et transmise à la direction du programme."}</p>
       ${note != null ? `<p class="lead-b"><b>Ta note : ${note} / ${total}</b>${reussi ? " — bravo !" : ""}</p>` : "<p class=\"help\">Les résultats te seront communiqués par l'équipe du programme.</p>"}
-      <div class="actions" style="justify-content:center"><a class="btn" href="espace.html">Retour à mon espace</a></div></div>`;
+      ${store.get("ndc_etapes", {}).eval_apres ? "" : `<p class="lead-b">Dernière étape : l'évaluation finale (2 minutes).</p>`}
+      <div class="actions" style="justify-content:center">${store.get("ndc_etapes", {}).eval_apres ? "" : '<a class="btn or" href="form.html?f=eval&phase=apres&moi=1">Faire l\'évaluation finale</a>'}<a class="btn sec" href="espace.html">Retour à mon espace</a></div></div>`;
     $("#enonce").focus({ preventScroll: true }); scrollTo({ top: 0, behavior: UI_REDUIT() ? "auto" : "smooth" });
   }
 }
