@@ -9,8 +9,8 @@ const vm = require('node:vm');
 const RACINE = path.join(__dirname, '..');
 const lire = f => fs.readFileSync(path.join(RACINE, f), 'utf8');
 const existe = f => fs.existsSync(path.join(RACINE, f));
-const PAGES = ['index.html', 'form.html', 'dashboard.html', 'liens.html', 'certificat.html', 'quiz.html', '404.html', 'offline.html'];
-const css = lire('style.css'), app = lire('app.js'), quiz = lire('quiz.js'), ui = lire('ui.js'), forms = lire('forms.js'), sw = lire('sw.js');
+const PAGES = ['index.html', 'form.html', 'dashboard.html', 'liens.html', 'certificat.html', 'parcours.html', '404.html', 'offline.html'];
+const css = lire('style.css'), app = lire('app.js'), quiz = lire('parcours.js'), ui = lire('ui.js'), forms = lire('forms.js'), sw = lire('sw.js');
 
 /* ---------- couleurs ---------- */
 function rgb(hex) { hex = hex.replace('#', ''); if (hex.length === 3) hex = [...hex].map(c => c + c).join(''); return [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16)); }
@@ -21,7 +21,7 @@ function teinte([r, g, b]) { r /= 255; g /= 255; b /= 255; const max = Math.max(
 const jeton = nom => { const m = css.match(new RegExp('--' + nom + ':\\s*(#[0-9a-fA-F]{3,6})')); assert.ok(m, 'jeton --' + nom + ' introuvable'); return m[1]; };
 
 test('la charte : aucun rouge ni rose dans les feuilles de style et les scripts', () => {
-  const sources = { 'style.css': css, 'app.js': app, 'quiz.js': quiz, 'ui.js': ui };
+  const sources = { 'style.css': css, 'app.js': app, 'parcours.js': quiz, 'ui.js': ui };
   for (const [nom, src] of Object.entries(sources)) {
     const sansTexte = src.replace(/\/\*[\s\S]*?\*\//g, '');
     for (const h of sansTexte.match(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g) || []) {
