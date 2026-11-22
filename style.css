@@ -760,3 +760,11 @@ button[disabled].btn{opacity:.55;cursor:not-allowed}
 .don-visuel img{display:block;width:100%;height:auto;border-radius:var(--r);box-shadow:var(--ombre-haute);border:1px solid var(--or-filet);transition:transform var(--d-normal) var(--ease)}
 .don-visuel:hover img{transform:translateY(-4px)}
 
+/* formations de BMT Green Academy */
+.lien-formations{font-weight:800;color:var(--vert2);text-decoration:underline;text-underline-offset:4px;font-size:15px}
+.poles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px;margin:26px 0 8px}
+.pole{display:flex;gap:16px;align-items:flex-start;padding:18px 18px;border-radius:var(--r);background:var(--blanc);border:1px solid var(--filet);box-shadow:var(--ombre);text-decoration:none;color:inherit;transition:transform var(--d-normal) var(--ease),box-shadow var(--d-normal),border-color var(--d-normal)}
+a.pole:hover,a.pole:focus-visible{transform:translateY(-3px);box-shadow:var(--ombre-haute);border-color:var(--or-filet)}
+.pole-n{flex:none;display:grid;place-items:center;min-width:46px;height:46px;padding:0 6px;border-radius:14px;background:var(--or-pale);color:var(--or-texte);font:700 16px var(--serif)}
+.pole h3{font:700 16.5px/1.3 var(--sans);margin:0 0 4px;color:var(--vert)}
+.pole p{margin:0;font-size:14px;color:var(--gris);line-height:1.45}

@@ -25,7 +25,7 @@ async function appelApi(corps) {
 
 /* Navigation principale : la même liste sert à l'en-tête (écran large) et au tiroir (mobile) */
 /* Profil de la personne (élève ou participant) : gardé sur son appareil après l'inscription. Il décide de ce qu'elle voit dans « Mon espace ». */
-const FORMATION_NDC = "Programme de sensibilisation La Noblesse du Cœur";
+const FORMATION_NDC = "La Noblesse du Cœur : programme éducatif de sensibilisation citoyenne";
 const profil = () => { const p = store.get("ndc_profil", null); return p && p.type ? p : null; };
 const acces = p => ({ quiz: !!p, examen: !!p && p.type === "eleve" });   // tout inscrit suit le parcours ; l'examen final noté est ouvert aux élèves des lycées pour l'instant
 const NAV = [["index.html", "Accueil"], ["equipe.html", "Espace équipe"]];                                   // site public
@@ -486,7 +486,7 @@ const CARTES_PROFIL = `<div class="profils">
   <a class="carte-profil" href="commencer.html?p=eleve" style="--k:0"><span class="pic">${ICONE.eleve}</span><h3>Je suis <em>élève</em></h3>
     <p>Tu es dans un lycée partenaire. Tu choisis ton école dans la liste, puis tu suis le parcours : cours, auto-évaluations corrigées et examens finaux.</p><span class="aller">M'inscrire comme élève</span></a>
   <a class="carte-profil" href="commencer.html?p=participant" style="--k:1"><span class="pic">${ICONE.participant}</span><h3>Je suis <em>participant(e)</em></h3>
-    <p>ONG, association, enseignant(e) ou particulier : tu suis le programme de sensibilisation La Noblesse du Cœur, où que tu sois en Côte d'Ivoire.</p><span class="aller">M'inscrire comme participant</span></a></div>`;
+    <p>ONG, association, enseignant(e), organisation ou particulier : tu suis le même programme La Noblesse du Cœur que les élèves, où que tu sois en Côte d'Ivoire.</p><span class="aller">M'inscrire comme participant</span></a></div>`;
 
 /* installation sur l'écran d'accueil (Android / ordinateur : bouton natif ; iPhone : le mode d'emploi) */
 let inviteInstall = null;
@@ -497,12 +497,12 @@ function brancherInstaller() { document.querySelectorAll(".installer").forEach(b
 
 /* ---------------- accueil public ---------------- */
 function renderAccueil() {
-  document.title = "La Noblesse du Cœur — Programme éducatif de sensibilisation";
+  document.title = "La Noblesse du Cœur — Programme éducatif de sensibilisation citoyenne";
   const p = profil(), nom = prenomDe(p);
   app().innerHTML = header() + BANDEAU("basilique", `
     <h1>La Noblesse du Cœur</h1>
     <p class="sous-titre" style="--k:1">L'art de la politesse</p>
-    <p class="lead" style="--k:2">${p ? `Content de te revoir, ${esc(nom)}. Retrouve ton parcours, tes auto-évaluations, tes examens et tes résultats.` : "<strong>Programme éducatif de sensibilisation</strong> : cours, auto-évaluations corrigées et examens finaux, en ligne. Inscris-toi, suis l'Axe 1 et l'Axe 2 module par module, puis passe tes examens. Tout se fait sur téléphone, à ton rythme."}</p>
+    <p class="lead" style="--k:2">${p ? `Content de te revoir, ${esc(nom)}. Retrouve ton parcours, tes auto-évaluations, tes examens et tes résultats.` : "<strong>Programme éducatif de sensibilisation citoyenne</strong> : cours, auto-évaluations corrigées et examens finaux, en ligne. Inscris-toi, suis l'Axe 1 et l'Axe 2 module par module, puis passe tes examens. Tout se fait sur téléphone, à ton rythme."}</p>
     <div class="cta" style="--k:2">${p ? '<a class="btn or" href="espace.html">Entrer dans mon espace</a>' : '<a class="btn or" href="commencer.html">Commencer</a>'}<a class="btn clair" href="#parcours">Comment ça marche</a></div>`) + `
   <main id="contenu" tabindex="-1">${DEMO() ? `<div class="wrap">${DEMO()}</div>` : ""}
     <section class="bande" id="commencer"><div class="wrap"><div class="etape-tete"><div><h2>${p ? "Ton <em>espace</em>" : "Qui <em>es-tu</em> ?"}</h2><p>${p ? "Tu es déjà inscrit(e) sur cet appareil." : "Choisis ton profil : le site te montrera uniquement ce qui te concerne."}</p></div></div>
@@ -636,9 +636,9 @@ const lienPlateforme = (url, txt, cls = "sec") => url ? `<a class="btn ${cls}" h
 /* Accès au pôle formation de BMT Green Academy : l'image du bouton (fond retiré), avec une phrase en vert gras au-dessus */
 const BOUTON_FORMATIONS = () => LIENS.academie
   ? `<div class="acces-formations"><p class="acces-txt">Pour découvrir les autres formations, accède au <strong>pôle formation de BMT Green Academy</strong> : touche le bouton.</p>
-  <a class="btn-image" href="${esc(LIENS.academie)}" target="_blank" rel="noopener" aria-label="Nos Formations : accéder au pôle formation de BMT Green Academy"><img src="img/bouton-formations.webp" width="640" height="382" alt="Nos Formations"></a></div>`
+  <a class="btn-image" href="${esc(LIENS.academie)}" target="_blank" rel="noopener" aria-label="Nos Formations : accéder au pôle formation de BMT Green Academy"><img src="img/bouton-formations.webp" width="640" height="382" alt="Nos Formations"></a><a class="lien-formations" href="formations.html">Voir tous les titres des formations</a></div>`
   : `<div class="acces-formations"><p class="acces-txt"><strong>Pôle formation de BMT Green Academy</strong> : l'accès s'ouvrira très bientôt, quand les deux plateformes seront reliées.</p>
-  <span class="btn-image ferme" role="img" aria-label="Nos Formations : accès bientôt ouvert"><img src="img/bouton-formations.webp" width="640" height="382" alt=""></span><p class="bientot">Accès bientôt ouvert</p></div>`;
+  <span class="btn-image ferme" role="img" aria-label="Nos Formations : accès bientôt ouvert"><img src="img/bouton-formations.webp" width="640" height="382" alt=""></span><p class="bientot">Accès bientôt ouvert</p><a class="lien-formations" href="formations.html">Voir tous les titres des formations</a></div>`;
 const EXPLICATION_ASYNCHRONE = `<div class="asynchrone"><h3>Une formation <em>asynchrone</em></h3>
   <p>Pas de cours à heure fixe : tu reçois les supports dès ton inscription et tu avances à ton rythme, quand tu veux, depuis ton téléphone. Les corrigés s'affichent tout de suite. Seule l'ouverture des examens finaux est annoncée par l'équipe.</p></div>`;
 function renderEspace() {
@@ -703,5 +703,32 @@ function renderOng() {
       <a class="don-visuel" href="${don}" target="_blank" rel="noopener" aria-label="Faire un don à l'ONG Lueur d'Espoir, sur WhatsApp"><img src="img/ong-don.webp" width="1280" height="853" loading="lazy" alt="Faire un don : soutenir la dignité, financer l'éducation, agir avec humanité. Donner à Lueur d'Espoir, c'est transformer la solidarité en action durable."></a>
       <p>Écris-nous sur WhatsApp : l'ONG te répond.</p><a class="btn or" href="${don}" target="_blank" rel="noopener">Faire un don sur WhatsApp</a></section>
     <div class="actions" style="margin-top:26px"><a class="btn sec" href="index.html">Retour à La Noblesse du Cœur</a></div></main>` + FOOT_ONG;
+  UIok();
+}
+
+/* ---------------- Formations de BMT Green Academy : la bibliothèque des titres (l'accès à la plateforme reste fermé tant que LIENS.academie est vide) ---------------- */
+const POLES = [
+  ["I", "Thérapies naturelles & énergétiques", "Aromathérapie, sylvothérapie, lithothérapie, chromothérapie, feng shui…"],
+  ["II", "Psychologie & sciences humaines", "Psychogénéalogie, constellations familiales, psychologie de l'enfant…"],
+  ["III", "Coaching & développement personnel", "Coach santé et bien-être, intelligence émotionnelle, coach de vie…"],
+  ["IV", "Éducation, créativité & art-thérapie", "Musicothérapie, pédagogie créative, co-art thérapie contemporaine…"],
+  ["V", "Environnement & numérique responsable", "Coach green life, leadership développement durable, bien-être numérique…"],
+  ["VI", "Langues, cultures & patrimoines ivoiriens", "Langues ethniques ivoiriennes, contes et symbolisme africains."],
+  ["VII", "Éthique, citoyenneté & humanisme africain", "Protection contre les abus et promotion de la dignité humaine."],
+  ["VIII", "Sport, handicap & performance", "Avec la Fédération Ivoirienne de Roll Ball : l'inclusion par le sport."],
+  ["IX", "Leadership & gouvernance durable", "17 Objectifs de développement durable : leadership climatique, paix, justice, institutions éthiques."],
+];
+function renderFormations() {
+  document.title = "Nos formations — BMT Green Academy";
+  const ouvert = !!LIENS.academie;
+  const carte = ([n, t, d], i) => { const corps = `<span class="pole-n">${n}</span><div><h3>${esc(t)}</h3><p>${esc(d)}</p></div>`;
+    return ouvert ? `<a class="pole" href="${esc(LIENS.academie)}" target="_blank" rel="noopener" style="--k:${i}">${corps}</a>` : `<div class="pole" style="--k:${i}">${corps}</div>`; };
+  app().innerHTML = header() + `
+  <section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">BMT Green Academy</span><h1>Nos <em>formations</em></h1>
+    <p>Après La Noblesse du Cœur, découvre les 9 pôles de formation de BMT Green Academy. ${ouvert ? "Touche un pôle pour ouvrir la plateforme éducative." : "L'accès à la plateforme éducative s'ouvrira très bientôt : tu pourras alors t'inscrire toi-même aux formations."}</p></div></div></section>
+  <main class="wrap" id="contenu" tabindex="-1">
+    <div class="poles">${POLES.map(carte).join("")}</div>
+    <section class="plateforme-fin" aria-labelledby="pf-t"><h2 id="pf-t" class="sr-seul">Accéder aux formations</h2>${BOUTON_FORMATIONS().replace(/<a class="lien-formations"[^>]*>[^<]*<\/a>/, "")}</section>
+    <div class="actions" style="margin-top:22px"><a class="btn sec" href="${profil() ? "espace.html" : "index.html"}">${profil() ? "Retour à mon espace" : "Retour à l'accueil"}</a></div></main>` + FOOT;
   UIok();
 }

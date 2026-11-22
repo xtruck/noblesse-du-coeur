@@ -88,12 +88,12 @@ const FORMS = {
   inscription: {
     titre: "Inscription au programme", court: "Inscription participant", img: "plateau", couleur: "#2e6b47", formation: true,
     profil: "participant",
-    desc: "Programme de sensibilisation La Noblesse du Cœur, pour les ONG, associations, enseignants et particuliers de toute la Côte d'Ivoire.",
+    desc: "La Noblesse du Cœur, programme éducatif de sensibilisation citoyenne : pour les ONG, associations, enseignants, organisations et particuliers de toute la Côte d'Ivoire, comme pour les élèves.",
     champs: [{ k: "nom", t: "text", l: "Nom et prénoms", req: true }, { k: "tel", t: "tel", l: "Téléphone (WhatsApp)", req: true, half: true },
       { k: "email", t: "email", l: "E-mail", half: true }, { k: "ville", t: "text", l: "Ville / commune", half: true },
       { k: "profil", t: "select", l: "Vous êtes", half: true, opts: ["", "Responsable d'ONG ou d'association", "Membre d'une ONG ou d'une association", "Enseignant(e)", "Étudiant(e)", "Particulier", "Autre"] },
       { k: "structure", t: "text", l: "Structure (ONG, association, établissement), si vous en avez une" },
-      { k: "formation", t: "fixe", v: "Programme de sensibilisation La Noblesse du Cœur" },
+      { k: "formation", t: "fixe", v: "La Noblesse du Cœur : programme éducatif de sensibilisation citoyenne" },
       { k: "message", t: "textarea", l: "Message (facultatif)" }],
   },
   eleve_inscr: {

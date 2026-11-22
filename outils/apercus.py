@@ -52,10 +52,11 @@ d.text((gauche, 130), "La Noblesse du Cœur", font=f1, fill=VERT)          # le 
 d.text((gauche, 130 + t + 16), "L'art de la politesse", font=police("georgiai.ttf", 34), fill=OR_TEXTE)
 y = 130 + t + 16 + 62
 d.line([(gauche, y), (gauche + 110, y)], fill=OR, width=4)
-fb, tb = ajuste(d, "Programme éducatif de sensibilisation", "georgiab.ttf", 30, dispo)
-d.text((gauche, y + 22), "Programme éducatif de sensibilisation", font=fb, fill=ENCRE)
-d.text((gauche, y + 66), "Cours, auto-évaluations corrigées", font=police("georgia.ttf", 26), fill=ENCRE)
-d.text((gauche, y + 102), "et examens finaux, en ligne", font=police("georgia.ttf", 26), fill=ENCRE)
+fb = police("georgiab.ttf", 31)
+d.text((gauche, y + 22), "Programme éducatif de", font=fb, fill=ENCRE)
+d.text((gauche, y + 60), "sensibilisation citoyenne", font=fb, fill=ENCRE)
+d.text((gauche, y + 112), "Cours, auto-évaluations corrigées", font=police("georgia.ttf", 26), fill=ENCRE)
+d.text((gauche, y + 148), "et examens finaux, en ligne", font=police("georgia.ttf", 26), fill=ENCRE)
 centre(d, "BMT Green Academy  ×  ONG Lueur d'Espoir  ·  Côte d'Ivoire", police("georgiab.ttf", 31), H - 66, 0, W, CREME)
 im.save("img/apercu-accueil.jpg", "JPEG", quality=88, optimize=True, progressive=True)
 
