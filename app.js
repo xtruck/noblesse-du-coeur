@@ -497,7 +497,7 @@ function brancherInstaller() { document.querySelectorAll(".installer").forEach(b
 
 /* ---------------- accueil public ---------------- */
 function renderAccueil() {
-  document.title = "La Noblesse du Cœur — évaluations en ligne";
+  document.title = "La Noblesse du Cœur — Évaluation en ligne";
   const p = profil(), nom = prenomDe(p);
   app().innerHTML = header() + BANDEAU("basilique", `
     <h1>La Noblesse du <em>Cœur</em></h1>
@@ -610,7 +610,7 @@ const BIBLIO = [
     ["axe1-guide-ambassadeur", "Guide : L'art de la dignité", "Guide de l'Ambassadeur de la Paix, de la Fraternité et de la Dignité.", "13 Mo"],
     ["axe1-preserver-sa-vie", "Sensibilisation : Préserver sa vie", "Document de sensibilisation, complément du cours.", "4 Mo"]] },
   { id: "axe2", axe: "Axe 2 · L'art de l'impact", intro: "Influence, éthique, réseaux sociaux et liberté d'expression : les 6 modules de l'Axe 2.", docs: [
-    ["axe2-cours", "Le cours : L'art de l'impact", "Les 6 modules de l'Axe 2.", "32 Mo"],
+    ["axe2-cours", "Le cours : L'art de l'impact", "Les 6 modules de l'Axe 2.", "29 Mo"],
     ["axe2-manuel-droit-numerique", "Manuel de l'élève : Droit numérique", "Droit numérique et citoyenneté digitale.", "13 Mo"],
     ["axe2-fiches-pratiques", "Fiches pratiques", "Des fiches à appliquer tout de suite.", "2 Mo"],
     ["axe2-carnets-de-suivi", "Carnets de suivi", "Pour suivre ta progression pas à pas.", "2 Mo"]] },

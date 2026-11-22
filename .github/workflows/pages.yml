@@ -32,7 +32,7 @@ jobs:
       - name: Préparer le site
         run: |
           mkdir _site
-          rsync -a --exclude='.git' --exclude='.github' --exclude='backend' --exclude='tests' --exclude='_site' --exclude='README.md' ./ _site/
+          rsync -a --exclude='.git' --exclude='.github' --exclude='backend' --exclude='tests' --exclude='outils' --exclude='_site' --exclude='README.md' ./ _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
