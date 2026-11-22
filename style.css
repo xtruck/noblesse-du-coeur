@@ -715,7 +715,7 @@ button[disabled].btn{opacity:.55;cursor:not-allowed}
 .acces-formations{display:grid;justify-items:center;gap:14px;margin:6px auto 8px;text-align:center}
 .acces-txt{margin:0;max-width:42ch;font-size:17px;line-height:1.45;color:var(--encre)}
 .acces-txt strong{color:var(--vert);font-weight:800}
-.btn-image{display:block;width:min(100%,400px);transition:transform var(--d-normal) var(--ease),filter var(--d-normal)}
+.btn-image{display:block;width:min(88%,330px);transition:transform var(--d-normal) var(--ease),filter var(--d-normal)}
 .btn-image img{display:block;width:100%;height:auto;outline:none;filter:drop-shadow(0 8px 14px rgba(120,60,0,.28))}
 .btn-image:hover,.btn-image:focus-visible{transform:translateY(-4px) scale(1.03)}
 .btn-image:active{transform:scale(.98)}
