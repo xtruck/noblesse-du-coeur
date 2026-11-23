@@ -44,7 +44,7 @@ function pageAxe(id) {
 async function envoyerScore(m, bon, total, pct) {
   const pr = profil(), zone = document.getElementById("envoi-etat");
   if (!pr || notConfigured()) { if (zone) zone.textContent = "Mode démonstration : score gardé sur cet appareil."; return; }
-  const id = pr.type === "eleve" ? { etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe, numero: pr.numero || "" } : { nom: pr.nom, tel: pr.tel, numero: pr.numero || "" };
+  const id = pr.type === "eleve" ? { etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe, numero: pr.numero || "" } : { nom: pr.nom, prenom: pr.prenom || "", ville: pr.ville || "", numero: pr.numero || "" };
   const res = await appelApi({ form: "quiz", profil: pr.type, ...id, module: m.id, titre: m.titre, score: bon, total, pct });
   const z = document.getElementById("envoi-etat"); if (!z) return;
   z.className = "envoi-etat " + (res.ok ? "envoi-bon" : "envoi-mal");
@@ -182,7 +182,7 @@ function brancherReflexion(m) {
     const rep = {}; m.reflexion.forEach((t, i) => { rep["r" + (i + 1)] = f.elements["r" + (i + 1)].value.trim(); });
     const etat = $("#refl-etat"), btn = f.querySelector("button");
     if (!Object.values(rep).some(Boolean)) { etat.className = "envoi-etat envoi-mal"; etat.textContent = "Écris au moins une réponse avant d'envoyer."; return; }
-    const pr = profil(), id = pr.type === "eleve" ? { etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe } : { nom: pr.nom, tel: pr.tel };
+    const pr = profil(), id = pr.type === "eleve" ? { etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe } : { nom: pr.nom, prenom: pr.prenom || "", ville: pr.ville || "" };
     window.UI && UI.charge(btn, true, "Envoi…");
     const res = notConfigured() ? { ok: true } : await appelApi({ form: "reflexion", profil: pr.type, numero: pr.numero || "", ...id, module: m.id, ...rep });
     if (!res.ok) { window.UI && UI.charge(btn, false, "Envoyer ma réflexion"); etat.className = "envoi-etat envoi-mal"; etat.textContent = res.error || "Envoi impossible. Réessaie."; return; }

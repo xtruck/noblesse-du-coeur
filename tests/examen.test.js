@@ -152,8 +152,7 @@ test("le fichier des bonnes réponses ne se trouve pas dans le dépôt public", 
   assert.deepStrictEqual(trouves, []);
 });
 
-test("chaque élève reçoit un identifiant unique, et le retrouve s'il s'inscrit deux fois", () => {
-  const { ctx } = monde();
+function mondeInscriptions() {
   /* faux classeur minimal pour la feuille d'inscription : on réutilise fauxClasseur */
   const classeur = fauxClasseur(); const props = {};
   const c = vm.createContext({ console,
@@ -163,11 +162,26 @@ test("chaque élève reçoit un identifiant unique, et le retrouve s'il s'inscri
     SpreadsheetApp: { getActiveSpreadsheet: () => classeur } });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'backend', 'Code.gs'), 'utf8'), c);
   const post = corps => JSON.parse(c.doPost({ postData: { contents: JSON.stringify(corps) } }).s);
+  return { post, classeur };
+}
+
+test("chaque élève reçoit un identifiant unique, et le retrouve s'il s'inscrit deux fois", () => {
+  const { post, classeur } = mondeInscriptions();
   const a = post({ form: 'eleve_inscr', ...eleve }), b = post({ form: 'eleve_inscr', ...eleve, nom: 'Traoré', prenom: 'Ibrahim' });
   assert.match(a.numero, /^NDC-\d{4}-0001$/); assert.match(b.numero, /^NDC-\d{4}-0002$/);
   const encore = post({ form: 'eleve_inscr', ...eleve });
   assert.strictEqual(encore.numero, a.numero);                  // même élève : même identifiant, pas de nouvelle ligne
   assert.strictEqual(classeur.feuilles['Inscriptions élèves'].rows.length, 3);
+});
+
+test("un participant n'a besoin que de son nom, ses prénoms et sa ville ; il partage le compteur des élèves, sans doublon", () => {
+  const { post, classeur } = mondeInscriptions();
+  const e = post({ form: 'eleve_inscr', ...eleve });
+  const part = { form: 'inscription', nom: 'Koffi', prenom: 'Awa', ville: 'Bingerville', formation: 'La Noblesse du Cœur' };
+  const p1 = post(part), p2 = post({ ...part, nom: 'Diallo' }), p1bis = post({ ...part, nom: ' KOFFI ', ville: 'bingerville' });
+  assert.match(e.numero, /^NDC-\d{4}-0001$/); assert.match(p1.numero, /^NDC-\d{4}-0002$/); assert.match(p2.numero, /^NDC-\d{4}-0003$/);
+  assert.strictEqual(p1bis.numero, p1.numero);                  // même personne (accents et majuscules ignorés) : même matricule
+  assert.strictEqual(classeur.feuilles['Inscriptions formations'].rows.length, 3);
 });
 
 test("sans axe, ou avec un axe inconnu : ni questions ni correction", () => {

@@ -34,6 +34,24 @@ var ESSAIS_MAX = 10, BLOCAGE_SEC = 900;
 
 /* Texte comparable : minuscules, sans accents, espaces simples. Sert à repérer qu'un élève est déjà inscrit. */
 function normCle_(s) { return String(s === undefined || s === null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); }
+/* Matricule unique NDC-AAAA-0001, partagé par les élèves et les participants. C'est le numéro du certificat et l'identifiant pour les autres formations BMT.
+   Compteur gardé dans les propriétés du script : jamais deux fois le même numéro, même si une ligne est supprimée. */
+function matriculeSuivant_() {
+  var props = PropertiesService.getScriptProperties();
+  var compte = Number(props.getProperty('COMPTEUR_MATRICULES') || props.getProperty('COMPTEUR_ELEVES') || 0) + 1;
+  props.setProperty('COMPTEUR_MATRICULES', String(compte));
+  return 'NDC-' + new Date().getFullYear() + '-' + ('0000' + compte).slice(-4);
+}
+/* Cherche la clé dans la colonne « cle » (TextFinder, sans relire toute la feuille). Renvoie le matricule déjà donné, ou null si la personne est nouvelle. */
+function numeroExistant_(sh, cle) {
+  if (sh.getLastRow() < 2) return null;
+  var entete = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0], colCle = entete.indexOf('cle') + 1;
+  if (colCle < 1) return null;
+  var trouve = sh.getRange(2, colCle, sh.getLastRow() - 1, 1).createTextFinder(cle).matchEntireCell(true).matchCase(true).findNext();
+  if (!trouve) return null;
+  var colNum = entete.indexOf('numero') + 1;
+  return colNum > 0 ? String(sh.getRange(trouve.getRow(), colNum).getValue() || '') : '';
+}
 function cleEleve_(d) { return [d.etablissement, d.nom, d.prenom, d.classe].map(normCle_).join('|'); }
 
 function codeAcces_() { return PropertiesService.getScriptProperties().getProperty('CODE_ACCES') || ''; }
@@ -68,27 +86,20 @@ function doPost(e) {
       res.numero = d.numero;
     }
     if (nom === ONGLET.inscription) {
-      var n2 = Math.max(0, sh.getLastRow() - 1) + 1;
-      d = Object.assign({ numero: 'BMT-' + new Date().getFullYear() + '-' + ('0000' + n2).slice(-4) }, d);
+      /* Participant : minimum demandé = nom, prénoms, où il habite. Même anti-doublon et même matricule que les élèves. */
+      d.cle = ['participant', d.nom, d.prenom, d.ville].map(normCle_).join('|');
+      var exist = numeroExistant_(sh, d.cle);
+      if (exist !== null) { res.numero = exist; return json_(res); }
+      d = Object.assign({ numero: matriculeSuivant_() }, d);
       res.numero = d.numero;
     }
     if (nom === ONGLET.eleve_inscr) {
       /* Anti-doublon : même établissement + nom + prénoms + classe (sans accents ni majuscules).
          La clé est stockée dans une colonne « cle » et cherchée avec TextFinder : pas de relecture de toute la feuille sous le verrou. */
       d.cle = cleEleve_(d);
-      var colCle = sh.getLastRow() > 1 ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].indexOf('cle') + 1 : 0;
-      if (colCle > 0) {
-        var trouve = sh.getRange(2, colCle, sh.getLastRow() - 1, 1).createTextFinder(d.cle).matchEntireCell(true).matchCase(true).findNext();
-        if (trouve) {
-          var entete = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0], colNum = entete.indexOf('numero') + 1;
-          if (colNum > 0) res.numero = String(sh.getRange(trouve.getRow(), colNum).getValue() || '');   // déjà inscrit : on redonne son identifiant
-          return json_(res);                                                                           // succès silencieux, pas de doublon
-        }
-      }
-      /* Identifiant unique de l'élève, relié à son évaluation, ses quiz, son examen et son certificat. Compteur gardé dans les propriétés du script (jamais deux fois le même numéro). */
-      var props = PropertiesService.getScriptProperties(), compte = Number(props.getProperty('COMPTEUR_ELEVES') || 0) + 1;
-      props.setProperty('COMPTEUR_ELEVES', String(compte));
-      d = Object.assign({ numero: 'NDC-' + new Date().getFullYear() + '-' + ('0000' + compte).slice(-4) }, d);
+      var existE = numeroExistant_(sh, d.cle);
+      if (existE !== null) { res.numero = existE; return json_(res); }   // déjà inscrit : on redonne son matricule, sans doublon
+      d = Object.assign({ numero: matriculeSuivant_() }, d);
       res.numero = d.numero;
     }
     var lignes = [d];
@@ -368,12 +379,12 @@ function calculer(D, opts) {
   /* Liste unique de toutes les personnes (une ligne par personne) : inscription, quiz, examen. Sert à l'export Excel de la direction. */
   var PP = {};
   function pers(r, type) {
-    var k = type + '|' + [r.etablissement, r.nom, r.prenom, r.classe || r.tel].map(norm).join('|');
+    var k = type + '|' + [r.etablissement, r.nom, r.prenom, r.classe || r.ville || r.tel].map(norm).join('|');
     return PP[k] || (PP[k] = { type: type, nom: String(r.nom || '').trim(), prenom: String(r.prenom || '').trim(), etab: String(r.etablissement || '').trim(),
-      classe: String(r.classe || '').trim(), formation: '', quizEssais: 0, quizTot: 0, modules: {}, examPct: null, examReussi: null, tel: String(r.tel || '').trim(), numero: String(r.numero || '') });
+      classe: String(r.classe || '').trim(), ville: String(r.ville || '').trim(), formation: '', quizEssais: 0, quizTot: 0, modules: {}, examPct: null, examReussi: null, tel: String(r.tel || '').trim(), numero: String(r.numero || '') });
   }
   EI.forEach(function (r) { var o = pers(r, 'Élève'); if (r.numero) o.numero = String(r.numero); });
-  I.forEach(function (r) { var o = pers({ nom: r.nom, tel: r.tel }, 'Participant'); o.formation = String(r.formation || ''); o.prenom = ''; o.tel = String(r.tel || '').trim(); });
+  I.forEach(function (r) { var o = pers({ nom: r.nom, prenom: r.prenom, ville: r.ville, tel: r.tel }, 'Participant'); o.formation = String(r.formation || ''); o.prenom = String(r.prenom || '').trim(); o.ville = String(r.ville || '').trim(); if (r.numero) o.numero = String(r.numero); o.tel = String(r.tel || '').trim(); });
   QZ.forEach(function (r) { var o = pers(r, r.profil === 'participant' ? 'Participant' : 'Élève'); o.quizEssais++; o.quizTot += num(r.pct) || 0;
     var mk = String(r.module || ''), mm = o.modules[mk] = o.modules[mk] || { titre: String(r.titre || mk), n: 0, best: 0, dernier: 0 };
     mm.n++; mm.dernier = num(r.pct) || 0; mm.best = Math.max(mm.best, mm.dernier); });

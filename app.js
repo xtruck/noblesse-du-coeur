@@ -436,7 +436,7 @@ function sectionsResultats(d, fr, kpi, pct, n2) {
     <select id="filtre-etat" aria-label="Filtrer par état"><option value="">Tous les états</option><option value="examen">A passé l'examen</option><option value="sans-examen">N'a pas passé l'examen</option><option value="quiz">A fait des quiz</option><option value="sans-quiz">Aucun quiz</option></select>
     <button class="btn" id="export-csv" type="button">Télécharger pour Excel</button></div>
   <p class="help" id="compte-p" aria-live="polite"></p>
-  <div class="panneau"><table class="tb" id="tb-pers"><thead><tr><th>Profil</th><th>Nom</th><th>Établissement ou formation</th><th>Classe</th><th>Auto-évaluations</th><th>Examens</th></tr></thead><tbody>${L.map((p, n) => `<tr class="pers" tabindex="0" aria-expanded="false" data-n="${n}" data-profil="${esc(p.type)}" data-exam="${p.examPct == null ? 0 : 1}" data-quiz="${p.quizEssais ? 1 : 0}" data-q="${esc([p.type, p.nom, p.prenom, p.etab, p.classe, p.formation].join(" ").toLowerCase())}"><td>${esc(p.type)}</td><td><b>${esc((p.nom + " " + p.prenom).trim())}</b></td><td>${esc(p.etab || p.formation)}</td><td>${esc(p.classe)}</td><td>${p.quizEssais ? p.quizEssais + " essais · " + p.quizMoy + " %" : "—"}</td><td>${p.examPct == null ? "—" : fr(p.examPct) + " % " + (p.examReussi ? "✓" : "")}</td></tr>
+  <div class="panneau"><table class="tb" id="tb-pers"><thead><tr><th>Profil</th><th>Nom</th><th>Établissement ou formation</th><th>Classe</th><th>Auto-évaluations</th><th>Examens</th></tr></thead><tbody>${L.map((p, n) => `<tr class="pers" tabindex="0" aria-expanded="false" data-n="${n}" data-profil="${esc(p.type)}" data-exam="${p.examPct == null ? 0 : 1}" data-quiz="${p.quizEssais ? 1 : 0}" data-q="${esc([p.type, p.nom, p.prenom, p.etab, p.ville, p.classe, p.formation, p.numero].join(" ").toLowerCase())}"><td>${esc(p.type)}</td><td><b>${esc((p.nom + " " + p.prenom).trim())}</b></td><td>${esc(p.etab || p.formation)}</td><td>${esc(p.classe)}</td><td>${p.quizEssais ? p.quizEssais + " essais · " + p.quizMoy + " %" : "—"}</td><td>${p.examPct == null ? "—" : fr(p.examPct) + " % " + (p.examReussi ? "✓" : "")}</td></tr>
       <tr class="detail" hidden data-d="${n}"><td colspan="6">${detailPersonne(p, fr)}</td></tr>`).join("") || '<tr><td colspan="6">Personne pour le moment.</td></tr>'}</tbody></table></div>`;
 }
 /* fiche d'une personne : contact, résultat à l'examen, meilleur score de chaque module de quiz */
@@ -476,7 +476,7 @@ function exporterCsv(L) {
    ===================================================================================================== */
 const profilDepuis = (type, d, res) => type === "eleve"
   ? { type, etab: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe, numero: (res && res.numero) || "" }
-  : { type, nom: d.nom, tel: d.tel, formation: d.formation || "", structure: d.structure || "", numero: (res && res.numero) || "" };
+  : { type, nom: d.nom, prenom: d.prenom, ville: d.ville, tel: d.tel || "", formation: d.formation || "", structure: d.structure || "", numero: (res && res.numero) || "" };
 const prenomDe = p => String((p && (p.prenom || p.nom)) || "").trim().split(/\s+/)[0];
 const ICONE = {
   eleve: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 8 4 18l20 10 20-10L24 8z"/><path d="M12 24v10c0 3 6 6 12 6s12-3 12-6V24"/><path d="M44 18v12"/></svg>',
@@ -547,7 +547,7 @@ function bienvenue(form, type, data, res) {
     <p class="eyebrow">${res.demo ? "Mode démonstration : non enregistré" : "Inscription enregistrée"}</p>
     <h2 tabindex="-1" id="merci">Bienvenue, <em>${esc(nom)}</em> !</h2>
     <p class="lead-b">${type === "eleve" ? "Ton espace est prêt : l'Axe 1, l'Axe 2 et les examens finaux de La Noblesse du Cœur." : "Ton espace est prêt : retrouve ici les évaluations de ta formation."}</p>
-    ${res.numero ? `<p class="idu-carte">Ton identifiant unique<b>${esc(res.numero)}</b><small>Il relie ton inscription, tes évaluations, tes quiz, ton examen et ton certificat. Garde-le précieusement.</small></p>` : ""}
+    ${res.numero ? `<p class="idu-carte">Ton matricule<b>${esc(res.numero)}</b><small>C'est le numéro de ton certificat et ton identifiant pour accéder aux autres formations de BMT Green Academy. Garde-le précieusement.</small></p>` : ""}
     <div class="actions" style="justify-content:center"><a class="btn or" href="espace.html">Entrer dans mon espace</a></div></div>`;
   jauge(1); const pc = $("#pc"); if (pc) pc.textContent = "100 %";
   scrollTo({ top: 0, behavior: UI_REDUIT() ? "auto" : "smooth" });
@@ -646,13 +646,13 @@ function renderEspace() {
   if (!p) { location.replace("commencer.html"); return; }
   document.title = "Mon espace — La Noblesse du Cœur";
   const ac = acces(p), B = bilanQuiz(), E = etapes(), F = store.get("ndc_examen_fait", {}) || {}, eleve = p.type === "eleve";
-  const idu = p.numero ? `<span class="idu">Identifiant : ${esc(p.numero)}</span>` : "";
-  const ident = eleve ? `${esc(p.etab)} · ${esc(p.classe)}` : esc(String(p.structure || "Participant(e)"));
+  const idu = p.numero ? `<span class="idu">Matricule : ${esc(p.numero)}</span>` : "";
+  const ident = eleve ? `${esc(p.etab)} · ${esc(p.classe)}` : esc([p.ville, p.structure].filter(Boolean).join(" · ") || "Participant(e)");
   const axe = (id, nom, titre) => { const mods = B.mods.filter(m => m.axeId === id), faits = mods.filter(m => B.best[m.id] != null).length;
     return { t: `${nom} · ${titre}`, d: `${mods.length} modules : pour chacun, le cours puis son auto-évaluation. ${faits} module${faits > 1 ? "s" : ""} suivi${faits > 1 ? "s" : ""} sur ${mods.length}.`, fait: mods.length > 0 && faits === mods.length, href: "parcours.html?a=" + id, axe: true }; };
   const examensFaits = !!(F.axe1 && F.axe2);
   const parcours = [
-    { t: "Inscription", d: "Ton profil et ton identifiant unique sont enregistrés.", fait: true },
+    { t: "Inscription", d: "Ton profil et ton matricule sont enregistrés.", fait: true },
     ...(eleve ? [{ t: "Évaluation initiale", d: "7 affirmations sur ton comportement : le point de départ.", fait: !!E.eval_avant, href: "form.html?f=eval&phase=avant&moi=1" }] : []),
     axe("axe1", "Axe 1", "L'art de la paix"),
     axe("axe2", "Axe 2", "L'art de l'impact"),
