@@ -1,6 +1,8 @@
 {
- "name": "BMT Green Academy — La Noblesse du Cœur",
- "short_name": "BMT Academy",
+ "name": "La Noblesse du Cœur : l'art de la politesse",
+ "short_name": "Noblesse du Cœur",
+ "description": "Programme éducatif de sensibilisation citoyenne : cours, auto-évaluations et examen final. Par BMT Green Academy et l'ONG Lueur d'Espoir.",
+ "id": "/noblesse-du-coeur/",
  "start_url": "index.html",
  "display": "standalone",
  "background_color": "#faf6ea",

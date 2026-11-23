@@ -21,7 +21,7 @@ const PAGES = {
   'commencer.html': { titre: 'S\'inscrire — ' + NOM, desc: 'Choisis ton profil (élève ou participant) et inscris-toi en une minute au programme La Noblesse du Cœur.', ...ACCUEIL },
   'espace.html': { titre: 'Mon espace — ' + NOM, desc: D_ACCUEIL, ...ACCUEIL },
   'parcours.html': { titre: 'Parcours éducatif — ' + NOM, desc: D_ACCUEIL, ...ACCUEIL },
-  'examen.html': { titre: 'Examens finaux — ' + NOM, desc: D_ACCUEIL, ...ACCUEIL },
+  'examen.html': { titre: 'Examen final — ' + NOM, desc: D_ACCUEIL, ...ACCUEIL },
   'bibliotheque.html': { titre: 'Bibliothèque — ' + NOM, desc: 'Les cours, le guide, le manuel, les fiches pratiques et les carnets de suivi du programme La Noblesse du Cœur.', ...ACCUEIL },
   'equipe.html': { titre: 'Espace équipe — ' + NOM, desc: 'Espace réservé à l\'équipe du programme.', ...ACCUEIL },
   'liens.html': { titre: 'Liens du programme — ' + NOM, desc: 'Espace réservé à l\'équipe du programme.', ...ACCUEIL },

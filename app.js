@@ -94,9 +94,9 @@ const ETAPES = [
     ["eleve_inscr", "", "Inscription de l'élève (lien général)", "L'élève choisit son lycée dans la liste, puis donne son nom, ses prénoms et sa classe."],
     ["eleve_inscr", "lycee=mamie", "Lycée Mamie Faitai de Bingerville", "Lien à donner aux élèves de ce lycée : l'établissement est déjà choisi."],
     ["eleve_inscr", "lycee=gnalega", "Lycée de Garçons Gnaléga Mémé Jérémie de Bingerville", "Lien à donner aux élèves de ce lycée : l'établissement est déjà choisi."]] },
-  { id: "quiz", court: "Parcours", t: "Parcours des *élèves*", s: "Pour les élèves : les cours et auto-évaluations de l'Axe 1 et de l'Axe 2, puis un examen final par axe.", items: [
-    ["@espace.html", "", "Mon espace (parcours de l'élève)", "Inscription, évaluation initiale, Axe 1, Axe 2, examens finaux, évaluation finale."],
-    ["@examen.html", "", "Examens finaux (Axe 1 et Axe 2)", "15 questions pour l'Axe 1 (dont la sensibilisation) et 10 pour l'Axe 2, corrigées par le serveur : une seule tentative par axe, note transmise à la direction."]] },
+  { id: "quiz", court: "Parcours", t: "Parcours des *élèves*", s: "Pour les élèves : les cours et auto-évaluations de l'Axe 1 et de l'Axe 2, puis un seul examen final.", items: [
+    ["@espace.html", "", "Mon espace (parcours de l'élève)", "Inscription, évaluation initiale, Axe 1, Axe 2, examen final, évaluation finale."],
+    ["@examen.html", "", "Examen final (Axe 1 et Axe 2)", "10 questions tirées au hasard (5 par axe), corrigées par le serveur : l'élève peut le repasser, la meilleure note est gardée."]] },
   { id: "pilotage", court: "Résultats", t: "*Résultats*", s: "Suivre le programme en direct.", items: [
     ["@dashboard.html", "", "Tableau de bord", "Inscrits, progrès, examens, distinctions et bénéficiaires.", true]] },
 ];
@@ -405,9 +405,9 @@ async function load(code, btn) {
     ${kpi(n2(P.suiviDebut) + " → " + n2(P.suiviFin), "Compétences /5", "début → fin")}
     ${kpi(pct(P.pctSansIncident), "Élèves sans incident", P.sansIncident + " / " + P.suivis)}
     ${kpi(P.incAvant + " → " + P.incApres, "Incidents (registres)", P.incAvant ? pct(P.reductionInc) + " de baisse" : "")}
-    ${kpi((d.examens || {}).retenus ?? 0, "Distinction Ambassadeur Junior", "80 % et plus, parmi les " + ((d.examens || {}).nbCertificats ?? 200) + " meilleurs")}
+    ${kpi((d.examens || {}).retenus ?? 0, "Certificats d'Ambassadeur", (d.examens || {}).seuilPct + " % et plus, parmi les " + ((d.examens || {}).nbCertificats ?? 200) + " meilleurs")}
     ${kpi(A.retenus ?? 0, "Élèves retenus (listes officielles)")}</div>
-  ${dbl}<h2 class="sec">Distinction : les meilleurs résultats aux examens finaux</h2><p class="help" style="margin:0 0 10px">Règle du kit : au moins 80/100 aux deux examens, dans la limite des 200 meilleurs ; seuil de validation 70/100. Les égalités à la dernière place sont à départager par la coordination.</p><div class="panneau"><table class="tb"><tr><th>Rang</th><th>Élève</th><th>Établissement</th><th>Classe</th><th>Note</th><th></th></tr>${((d.examens || {}).liste || []).filter(x => x.retenu && x.distinction).map(x => `<tr><td>${x.rang}</td><td><b>${esc((x.nom + " " + x.prenom).trim())}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td class="yes">${fr(x.pct)} %</td><td>${cert({ nom: (x.nom + " " + x.prenom).trim() })}</td></tr>`).join("") || '<tr><td colspan="6">Aucun pour le moment.</td></tr>'}</table></div>
+  ${dbl}<h2 class="sec">Certificat d'Ambassadeur : les meilleurs résultats à l'examen final</h2><p class="help" style="margin:0 0 10px">Un seul certificat, le même pour tous : au moins ${(d.examens || {}).seuilPct ?? 80}/100 à l'examen final, dans la limite des ${(d.examens || {}).nbCertificats ?? 200} meilleurs. Les égalités à la dernière place sont à départager par la coordination.</p><div class="panneau"><table class="tb"><tr><th>Rang</th><th>Élève</th><th>Établissement</th><th>Classe</th><th>Note</th><th></th></tr>${((d.examens || {}).liste || []).filter(x => x.retenu).map(x => `<tr><td>${x.rang}</td><td><b>${esc((x.nom + " " + x.prenom).trim())}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td class="yes">${fr(x.pct)} %</td><td>${cert({ nom: (x.nom + " " + x.prenom).trim() })}</td></tr>`).join("") || '<tr><td colspan="6">Aucun pour le moment.</td></tr>'}</table></div>
   <h2 class="sec">Par établissement</h2><div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Élèves</th><th>Moy. avant</th><th>Moy. après</th></tr>${P.parEtab.map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td></tr>`).join("")}</table></div>
   <h2 class="sec">Tous les élèves</h2><div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Avant</th><th>Après</th><th>Ens. après</th><th>Suivi fin</th><th>Incident</th><th>Critères</th></tr>${P.eleves.map(e => `<tr><td>${esc(e.nom)}</td><td>${esc(e.etab)}</td><td>${esc(e.classe)}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td><td>${n2(e.ensAp)}</td><td>${n2(e.fin)}</td><td>${e.incident == null ? "—" : e.incident ? "Oui" : "Non"}</td><td class="${e.crit >= 3 ? "yes" : ""}">${e.crit}/4</td></tr>`).join("")}</table></div>
   <h2 class="sec">Campagne en milieu scolaire — inscriptions des élèves</h2><div class="kpis">${kpi(I.total, "Élèves inscrits")}</div>
@@ -425,9 +425,9 @@ async function load(code, btn) {
 function sectionsResultats(d, fr, kpi, pct, n2) {
   const X = d.examens || { copies: 0, liste: [], parEtab: [] }, Q = d.quiz || { tentatives: 0, personnes: 0, parModule: [] }, L = d.personnes || [];
   const oui = b => b === true ? '<span class="yes">Réussi</span>' : b === false ? "Non" : "—";
-  return `<h2 class="sec">Examen final noté</h2><div class="kpis">${kpi(X.copies, "Copies reçues")}${kpi(pct(X.moyennePct), "Note moyenne")}${kpi(X.reussis ?? 0, "Réussites", "seuil provisoire : " + (X.seuilPct ?? 70) + " %")}${kpi(pct(X.pctReussite), "Taux de réussite")}</div>
-  <div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Copies</th><th>Moyenne</th><th>Réussites</th><th>Certificats (max ${X.nbCertificats ?? 150})</th></tr>${(X.parEtab || []).map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${pct(e.moyennePct)}</td><td>${e.reussis}</td><td><b>${e.certificats}</b></td></tr>`).join("") || '<tr><td colspan="5">Aucune copie pour le moment.</td></tr>'}</table></div>
-  <div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Note</th><th>Axe 1</th><th>Axe 2</th><th></th></tr>${(X.liste || []).map(x => `<tr><td><b>${esc(x.nom)} ${esc(x.prenom)}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td>${x.note} / ${x.total}</td><td>${x.a1 ? x.axe1 : "—"}</td><td>${x.a2 ? x.axe2 : "—"}</td><td>${x.complet ? oui(x.reussi) : "Incomplet"}</td></tr>`).join("") || '<tr><td colspan="7">Aucune copie.</td></tr>'}</table></div>
+  return `<h2 class="sec">Examen final noté</h2><div class="kpis">${kpi(X.copies, "Copies reçues")}${kpi(pct(X.moyennePct), "Note moyenne")}${kpi(X.reussis ?? 0, "Réussites", "seuil : " + (X.seuilPct ?? 80) + " %")}${kpi(pct(X.pctReussite), "Taux de réussite")}</div>
+  <div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Copies</th><th>Moyenne</th><th>Réussites</th><th>Certificats (max ${X.nbCertificats ?? 200})</th></tr>${(X.parEtab || []).map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${pct(e.moyennePct)}</td><td>${e.reussis}</td><td><b>${e.retenus}</b></td></tr>`).join("") || '<tr><td colspan="5">Aucune copie pour le moment.</td></tr>'}</table></div>
+  <div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Meilleure note</th><th>Axe 1</th><th>Axe 2</th><th>Tentatives</th><th></th></tr>${(X.liste || []).map(x => `<tr><td><b>${esc(x.nom)} ${esc(x.prenom)}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td>${x.note} / ${x.total}</td><td>${x.axe1}</td><td>${x.axe2}</td><td>${x.tentatives}</td><td>${oui(x.reussi)}</td></tr>`).join("") || '<tr><td colspan="8">Aucune copie.</td></tr>'}</table></div>
   <h2 class="sec">Auto-évaluations des modules</h2><div class="kpis">${kpi(Q.tentatives, "Essais envoyés")}${kpi(Q.personnes, "Personnes concernées")}${kpi((d.autres || {}).reflexions ?? 0, "Réflexions écrites", "sensibilisation")}</div>
   <div class="panneau"><table class="tb"><tr><th>Module</th><th>Essais</th><th>Score moyen</th></tr>${(Q.parModule || []).map(m => `<tr><td>${esc(m.titre)}</td><td>${m.n}</td><td>${pct(m.moyennePct)}</td></tr>`).join("") || '<tr><td colspan="3">Aucun essai pour le moment.</td></tr>'}</table></div>
   <h2 class="sec">Toutes les personnes (${L.length})</h2><p class="help" style="margin:0 0 10px">Cherche un nom, filtre par profil ou par état, et clique sur une ligne pour voir le détail de la personne (modules de quiz, contact). « Télécharger » donne un fichier Excel avec tout le monde.</p>
@@ -484,7 +484,7 @@ const ICONE = {
 };
 const CARTES_PROFIL = `<div class="profils">
   <a class="carte-profil" href="commencer.html?p=eleve" style="--k:0"><span class="pic">${ICONE.eleve}</span><h3>Je suis <em>élève</em></h3>
-    <p>Tu es dans un lycée partenaire. Tu choisis ton école dans la liste, puis tu suis le parcours : cours, auto-évaluations corrigées et examens finaux.</p><span class="aller">M'inscrire comme élève</span></a>
+    <p>Tu es dans un lycée partenaire. Tu choisis ton école dans la liste, puis tu suis le parcours : cours, auto-évaluations corrigées et examen final.</p><span class="aller">M'inscrire comme élève</span></a>
   <a class="carte-profil" href="commencer.html?p=participant" style="--k:1"><span class="pic">${ICONE.participant}</span><h3>Je suis <em>participant(e)</em></h3>
     <p>ONG, association, enseignant(e), organisation ou particulier : tu suis le même programme La Noblesse du Cœur que les élèves, où que tu sois en Côte d'Ivoire.</p><span class="aller">M'inscrire comme participant</span></a></div>`;
 
@@ -502,7 +502,7 @@ function renderAccueil() {
   app().innerHTML = header() + BANDEAU("basilique", `
     <h1>La Noblesse du Cœur</h1>
     <p class="sous-titre" style="--k:1">L'art de la politesse</p>
-    <p class="lead" style="--k:2">${p ? `Content de te revoir, ${esc(nom)}. Retrouve ton parcours, tes auto-évaluations, tes examens et tes résultats.` : "<strong>Programme éducatif de sensibilisation citoyenne</strong> : cours, auto-évaluations corrigées et examens finaux, en ligne. Inscris-toi, suis l'Axe 1 et l'Axe 2 module par module, puis passe tes examens. Tout se fait sur téléphone, à ton rythme."}</p>
+    <p class="lead" style="--k:2">${p ? `Content de te revoir, ${esc(nom)}. Retrouve ton parcours, tes auto-évaluations, ton examen et tes résultats.` : "<strong>Programme éducatif de sensibilisation citoyenne</strong> : cours, auto-évaluations corrigées et examens finaux, en ligne. Inscris-toi, suis l'Axe 1 et l'Axe 2 module par module, puis passe tes examens. Tout se fait sur téléphone, à ton rythme."}</p>
     <div class="cta" style="--k:2">${p ? '<a class="btn or" href="espace.html">Entrer dans mon espace</a>' : '<a class="btn or" href="commencer.html">Commencer</a>'}<a class="btn clair" href="#parcours">Comment ça marche</a></div>`) + `
   <main id="contenu" tabindex="-1">${DEMO() ? `<div class="wrap">${DEMO()}</div>` : ""}
     <section class="bande" id="commencer"><div class="wrap"><div class="etape-tete"><div><h2>${p ? "Ton <em>espace</em>" : "Qui <em>es-tu</em> ?"}</h2><p>${p ? "Tu es déjà inscrit(e) sur cet appareil." : "Choisis ton profil : le site te montrera uniquement ce qui te concerne."}</p></div></div>
@@ -511,14 +511,14 @@ function renderAccueil() {
       <ol class="pas">
         <li style="--k:0"><i>1</i><h3>Je m'inscris</h3><p>J'indique mon école, ma classe et mon nom : une minute suffit.</p></li>
         <li style="--k:1"><i>2</i><h3>J'étudie, module par module</h3><p>Pour chaque module : le cours, puis son auto-évaluation avec la correction expliquée.</p></li>
-        <li style="--k:2"><i>3</i><h3>Je passe les examens finaux</h3><p>Un examen par axe, corrigé automatiquement. Ma copie est transmise à la direction.</p></li></ol>
+        <li style="--k:2"><i>3</i><h3>Je passe l'examen final</h3><p>Un seul examen sur les deux axes, corrigé automatiquement. Je peux le repasser : ma meilleure note est gardée.</p></li></ol>
       <div class="actions" style="justify-content:center">${INSTALLER}</div></div></section>
     <section class="bande" id="asynchrone"><div class="wrap"><div class="etape-tete"><div><h2>Une formation <em>asynchrone</em></h2><p>Tu avances à ton rythme, où que tu sois.</p></div></div>
       <div class="pas">
         <div class="pas-i" style="--k:0"><h3>Pas d'horaire imposé</h3><p>Les supports sont disponibles dès l'inscription. Tu les lis et tu t'exerces quand tu veux, sur téléphone.</p></div>
         <div class="pas-i" style="--k:1"><h3>Corrigés immédiats</h3><p>Chaque auto-évaluation explique la bonne réponse, même quand tu te trompes. Tu peux recommencer autant que tu veux.</p></div>
-        <div class="pas-i" style="--k:2"><h3>Examen à date annoncée</h3><p>Seul l'examen final s'ouvre à une date communiquée par l'équipe. Il est corrigé automatiquement.</p></div></div></div></section>
-    <section class="bande sable" id="plateformes"><div class="wrap"><div class="etape-tete"><div><h2>Les autres <em>formations</em></h2><p>BMT Green Academy propose bien d'autres formations sur sa plateforme éducative.</p></div></div>
+        <div class="pas-i" style="--k:2"><h3>Examen à date annoncée</h3><p>L'examen final s'ouvre quand tu as fait toutes les auto-évaluations des deux axes. Il est corrigé automatiquement, et tu peux le repasser.</p></div></div></div></section>
+    <section class="bande sombre" id="plateformes"><div class="wrap"><div class="etape-tete"><div><h2>Les autres <em>formations</em></h2><p>BMT Green Academy propose bien d'autres formations sur sa plateforme éducative.</p></div></div>
       ${BOUTON_FORMATIONS()}<div class="actions" style="justify-content:center">${lienPlateforme(LIENS.ong, "Découvrir l'ONG Lueur d'Espoir")}</div></div></section>
   </main>` + PARTENAIRES + FOOT;
   brancherInstaller();
@@ -546,7 +546,7 @@ function bienvenue(form, type, data, res) {
     <svg class="coche" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="25"/><path d="M14 27l8 8 16-17"/></svg>
     <p class="eyebrow">${res.demo ? "Mode démonstration : non enregistré" : "Inscription enregistrée"}</p>
     <h2 tabindex="-1" id="merci">Bienvenue, <em>${esc(nom)}</em> !</h2>
-    <p class="lead-b">${type === "eleve" ? "Ton espace est prêt : l'Axe 1, l'Axe 2 et les examens finaux de La Noblesse du Cœur." : "Ton espace est prêt : retrouve ici les évaluations de ta formation."}</p>
+    <p class="lead-b">${type === "eleve" ? "Ton espace est prêt : l'Axe 1, l'Axe 2 et l'examen final de La Noblesse du Cœur." : "Ton espace est prêt : retrouve ici les évaluations de ta formation."}</p>
     ${res.numero ? `<p class="idu-carte">Ton matricule<b>${esc(res.numero)}</b><small>C'est le numéro de ton certificat et ton identifiant pour accéder aux autres formations de BMT Green Academy. Garde-le précieusement.</small></p>` : ""}
     <div class="actions" style="justify-content:center"><a class="btn or" href="espace.html">Entrer dans mon espace</a></div></div>`;
   jauge(1); const pc = $("#pc"); if (pc) pc.textContent = "100 %";
@@ -555,8 +555,10 @@ function bienvenue(form, type, data, res) {
 }
 
 /* ---------------- aides communes aux quiz et à « Mon espace » ---------------- */
-const NB_QUESTIONS_EXAMEN = { 1: 15, 2: 10 };   // examen final : Axe 1 = 10 questions sur l'art de la paix + 5 sur la sensibilisation ; Axe 2 = 10 questions
-const SEUIL_ACCES_EXAMEN = 70;               // % minimal à CHAQUE auto-évaluation d'un axe pour ouvrir son examen final (à confirmer par la coordination)
+const NB_QUESTIONS_EXAMEN = 10;               // un seul examen final : 5 questions de l'Axe 1 (paix + sensibilisation) et 5 de l'Axe 2, tirées au hasard à chaque tentative
+const CLE_EXAMEN_FAIT = "ndc_examen_fait";   // { cle, n } : combien de copies cet appareil a envoyées
+const cleLocale = p => [p.etab, p.nom, p.prenom, p.classe].map(x => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim()).join("|");
+const examenFait = () => { const e = store.get(CLE_EXAMEN_FAIT, {}) || {}, p = profil(); return e.n > 0 && p && e.cle === cleLocale(p) ? e : null; };
 const SEUIL_QUIZ = 70;                       // % à partir duquel un module est « maîtrisé » (simple encouragement : l'examen final a son propre seuil)
 const LETTRES = "ABCD";
 const melanger = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -565,8 +567,8 @@ const tousModules = () => typeof QUIZ === "undefined" ? [] : QUIZ.flatMap(a => a
 const etatModule = (best, m) => best[m.id] == null ? "afaire" : best[m.id] >= SEUIL_QUIZ ? "maitrise" : "encours";
 const LIBELLE_ETAT = { afaire: "À faire", encours: "À retravailler", maitrise: "Maîtrisé" };
 const minutes = m => Math.max(2, Math.round(m.questions.length * 0.4));
-/* L'examen d'un axe s'ouvre quand tous ses modules (sensibilisation comprise) ont une auto-évaluation validée. Règle côté site : elle guide l'élève (le serveur ne la contrôle pas). */
-const axeProgres = id => { const best = store.get("ndc_quiz", {}) || {}, mods = tousModules().filter(m => m.axeId === id), restants = mods.filter(m => !(best[m.id] >= SEUIL_ACCES_EXAMEN)); return { mods, restants, pret: mods.length > 0 && restants.length === 0 }; };
+/* L'examen final (un seul, sur les deux axes) s'ouvre quand TOUTES les auto-évaluations des deux axes ont été faites au moins une fois, quelle que soit la note. Règle côté site : elle guide l'élève (le serveur ne la contrôle pas). */
+const examenProgres = () => { const best = store.get("ndc_quiz", {}) || {}, mods = tousModules(), restants = mods.filter(m => best[m.id] == null); return { mods, restants, pret: mods.length > 0 && restants.length === 0 }; };
 /* bilan de la progression de la personne (meilleur score de chaque module, gardé sur son appareil) */
 function bilanQuiz() {
   const best = store.get("ndc_quiz", {}), mods = tousModules();
@@ -636,11 +638,11 @@ const lienPlateforme = (url, txt, cls = "sec") => url ? `<a class="btn ${cls}" h
 /* Accès au pôle formation de BMT Green Academy : l'image du bouton (fond retiré), avec une phrase en vert gras au-dessus */
 const BOUTON_FORMATIONS = () => LIENS.academie
   ? `<div class="acces-formations"><p class="acces-txt">Pour découvrir les autres formations, accède au <strong>pôle formation de BMT Green Academy</strong> : touche le bouton.</p>
-  <a class="btn-image" href="${esc(LIENS.academie)}" target="_blank" rel="noopener" aria-label="Nos Formations : accéder au pôle formation de BMT Green Academy"><img src="img/bouton-formations.webp" width="640" height="382" alt="Nos Formations"></a><a class="lien-formations" href="formations.html">Voir tous les titres des formations</a></div>`
+  <a class="btn-image" href="${esc(LIENS.academie)}" target="_blank" rel="noopener" aria-label="Accéder à la plateforme BMT Green Academy"><img src="img/bouton-plateforme.webp" width="640" height="260" alt="Accéder à la plateforme BMT Green Academy"></a><a class="lien-formations" href="formations.html">Voir tous les titres des formations</a></div>`
   : `<div class="acces-formations"><p class="acces-txt"><strong>Pôle formation de BMT Green Academy</strong> : l'accès s'ouvrira très bientôt, quand les deux plateformes seront reliées.</p>
-  <span class="btn-image ferme" role="img" aria-label="Nos Formations : accès bientôt ouvert"><img src="img/bouton-formations.webp" width="640" height="382" alt=""></span><p class="bientot">Accès bientôt ouvert</p><a class="lien-formations" href="formations.html">Voir tous les titres des formations</a></div>`;
+  <span class="btn-image ferme" role="img" aria-label="Accéder à la plateforme BMT Green Academy : accès bientôt ouvert"><img src="img/bouton-plateforme.webp" width="640" height="260" alt=""></span><p class="bientot">Accès bientôt ouvert</p><a class="lien-formations" href="formations.html">Voir tous les titres des formations</a></div>`;
 const EXPLICATION_ASYNCHRONE = `<div class="asynchrone"><h3>Une formation <em>asynchrone</em></h3>
-  <p>Pas de cours à heure fixe : tu reçois les supports dès ton inscription et tu avances à ton rythme, quand tu veux, depuis ton téléphone. Les corrigés s'affichent tout de suite. Seule l'ouverture des examens finaux est annoncée par l'équipe.</p></div>`;
+  <p>Pas de cours à heure fixe : tu reçois les supports dès ton inscription et tu avances à ton rythme, quand tu veux, depuis ton téléphone. Les corrigés s'affichent tout de suite. L'examen final s'ouvre dès que toutes les auto-évaluations sont faites.</p></div>`;
 function renderEspace() {
   const p = profil();
   if (!p) { location.replace("commencer.html"); return; }
@@ -650,13 +652,13 @@ function renderEspace() {
   const ident = eleve ? `${esc(p.etab)} · ${esc(p.classe)}` : esc([p.ville, p.structure].filter(Boolean).join(" · ") || "Participant(e)");
   const axe = (id, nom, titre) => { const mods = B.mods.filter(m => m.axeId === id), faits = mods.filter(m => B.best[m.id] != null).length;
     return { t: `${nom} · ${titre}`, d: `${mods.length} modules : pour chacun, le cours puis son auto-évaluation. ${faits} module${faits > 1 ? "s" : ""} suivi${faits > 1 ? "s" : ""} sur ${mods.length}.`, fait: mods.length > 0 && faits === mods.length, href: "parcours.html?a=" + id, axe: true }; };
-  const examensFaits = !!(F.axe1 && F.axe2);
+  const examensFaits = !!examenFait(), EP = examenProgres();
   const parcours = [
     { t: "Inscription", d: "Ton profil et ton matricule sont enregistrés.", fait: true },
     ...(eleve ? [{ t: "Évaluation initiale", d: "7 affirmations sur ton comportement : le point de départ.", fait: !!E.eval_avant, href: "form.html?f=eval&phase=avant&moi=1" }] : []),
     axe("axe1", "Axe 1", "L'art de la paix"),
     axe("axe2", "Axe 2", "L'art de l'impact"),
-    ...(ac.examen ? [{ t: "Examens finaux", d: `Un examen par axe, une seule tentative chacun, une fois toutes les auto-évaluations de l'axe validées (${SEUIL_ACCES_EXAMEN} % minimum). Axe 1 : ${F.axe1 ? "envoyé" : axeProgres("axe1").pret ? "à passer" : "à débloquer"} · Axe 2 : ${F.axe2 ? "envoyé" : axeProgres("axe2").pret ? "à passer" : "à débloquer"}.`, fait: examensFaits, href: "examen.html" },
+    ...(ac.examen ? [{ t: "Examen final", d: `Un seul examen sur les deux axes : ${NB_QUESTIONS_EXAMEN} questions tirées au hasard. Tu peux le repasser autant de fois que tu veux, la meilleure note est gardée. ${examensFaits ? "Copies envoyées : " + examenFait().n + "." : EP.pret ? "Il est ouvert : à toi de jouer." : "Il s'ouvre quand toutes les auto-évaluations sont faites (" + EP.restants.length + " restante" + (EP.restants.length > 1 ? "s" : "") + ")."}`, fait: examensFaits, href: "examen.html" },
       { t: "Évaluation finale", d: "Les mêmes 7 affirmations : on mesure ta progression.", fait: !!E.eval_apres, href: "form.html?f=eval&phase=apres&moi=1", apres: examensFaits }] : []),
   ];
   const actuelle = parcours.findIndex(e => !e.fait);

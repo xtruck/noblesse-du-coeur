@@ -51,26 +51,38 @@ function monde({ ouvert = true, banque = BANQUE } = {}) {
 }
 const eleve = { etablissement: 'Lycée A', nom: 'Koné', prenom: 'Awa', classe: '3e A' };
 const toutJuste = Object.fromEntries(BANQUE.map(q => [q.id, q.bonne]));
+const ids = [1, 2, 3, 4];
 
 test("l'examen fermé ne donne ni questions ni correction", () => {
   const { post } = monde({ ouvert: false });
-  assert.strictEqual(post({ action: 'examen_questions', axe: 1 }).ok, false);
-  assert.strictEqual(post({ action: 'examen_noter', axe: 1, ...eleve, reponses: toutJuste }).ok, false);
+  assert.strictEqual(post({ action: 'examen_questions' }).ok, false);
+  assert.strictEqual(post({ action: 'examen_noter', ...eleve, ids, reponses: toutJuste }).ok, false);
 });
 
 test('examen non installé (fichier privé absent) : message clair, pas de plantage', () => {
   const { post } = monde({ banque: null });
-  assert.match(post({ action: 'examen_questions', axe: 1 }).error, /pas encore install/);
+  assert.match(post({ action: 'examen_questions' }).error, /pas encore install/);
 });
 
-test('les questions envoyées au navigateur ne contiennent aucune bonne réponse', () => {
+test("les questions envoyées au navigateur ne contiennent aucune bonne réponse ; l'examen mêle les deux axes", () => {
   const { post } = monde();
-  const brut = JSON.stringify(post({ action: 'examen_questions', axe: 1 }));
+  const brut = JSON.stringify(post({ action: 'examen_questions' }));
   const r = JSON.parse(brut);
-  assert.strictEqual(r.ok, true); assert.strictEqual(r.total, 2); assert.strictEqual(r.axe, 1);
-  assert.ok(r.questions.every(q => q.axe === 1), 'seules les questions de l\'axe demandé sont envoyées');
+  assert.strictEqual(r.ok, true); assert.strictEqual(r.total, 4);
+  assert.deepStrictEqual(r.questions.map(q => q.axe), [1, 1, 2, 2], 'les questions de l\'Axe 1 puis celles de l\'Axe 2');
   assert.ok(!/bonne/.test(brut), 'le mot « bonne » ne doit pas sortir');
   r.questions.forEach(q => { assert.strictEqual(q.options.length, 4); assert.deepStrictEqual([...q.options.map(o => o.id)].sort(), [0, 1, 2, 3]); assert.strictEqual(q.bonne, undefined); });
+});
+
+test("le tirage prend au plus 5 questions par axe dans la banque et change à chaque fois", () => {
+  const banque = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, axe: i < 15 ? 1 : 2, q: 'Q' + i, options: ['a', 'b', 'c', 'd'], bonne: 0 }));
+  const { post } = monde({ banque });
+  const tirage = () => post({ action: 'examen_questions' }).questions;
+  const a = tirage();
+  assert.strictEqual(a.length, 10); assert.strictEqual(a.filter(q => q.axe === 1).length, 5); assert.strictEqual(a.filter(q => q.axe === 2).length, 5);
+  assert.strictEqual(new Set(a.map(q => q.id)).size, 10);
+  const vus = new Set(a.map(q => q.id)); for (let k = 0; k < 20; k++) tirage().forEach(q => vus.add(q.id));
+  assert.ok(vus.size > 10, 'les tentatives suivantes posent d\'autres questions');
 });
 
 test('correction : tout juste, rien, et réponses partielles', () => {
@@ -85,36 +97,49 @@ test('correction : tout juste, rien, et réponses partielles', () => {
 
 test("une copie est corrigée par le serveur, enregistrée, et la note n'est pas renvoyée à l'élève", () => {
   const { post, classeur } = monde();
-  const r = post({ action: 'examen_noter', axe: 1, ...eleve, reponses: toutJuste });
-  assert.strictEqual(r.ok, true); assert.strictEqual(r.note, undefined);
-  const l = classeur.feuilles.Examens.rows;
+  const r = post({ action: 'examen_noter', ...eleve, ids, reponses: toutJuste });
+  assert.strictEqual(r.ok, true); assert.strictEqual(r.note, undefined); assert.strictEqual(r.tentative, 1);
+  const l = classeur.feuilles['Examen final'].rows;
   assert.strictEqual(l.length, 2);                              // en-tête + une copie
   const col = n => l[0].indexOf(n);
-  assert.strictEqual(l[1][col('note')], 2); assert.strictEqual(l[1][col('total')], 2);
-  assert.strictEqual(l[1][col('axe1')], 2); assert.strictEqual(l[1][col('axe2')], 0); assert.strictEqual(l[1][col('axe')], 1);
+  assert.strictEqual(l[1][col('note')], 4); assert.strictEqual(l[1][col('total')], 4);
+  assert.strictEqual(l[1][col('axe1')], 2); assert.strictEqual(l[1][col('axe2')], 2); assert.strictEqual(l[1][col('tentatives')], 1);
 });
 
-test('une seule tentative : le même élève, écrit autrement, est refusé', () => {
+test("l'élève peut repasser l'examen : une seule ligne, tentatives comptées, la meilleure note est gardée", () => {
   const { post, classeur } = monde();
-  assert.strictEqual(post({ action: 'examen_noter', axe: 1, ...eleve, reponses: toutJuste }).ok, true);
-  const bis = post({ action: 'examen_noter', axe: 1, etablissement: 'LYCÉE A', nom: 'kone', prenom: 'AWA', classe: '3e  a', reponses: {} });
-  assert.strictEqual(bis.ok, false); assert.strictEqual(bis.deja, true);
-  assert.strictEqual(classeur.feuilles.Examens.rows.length, 2);
-  const axe2 = post({ action: 'examen_noter', axe: 2, ...eleve, reponses: toutJuste });   // l'autre axe est un autre examen
-  assert.strictEqual(axe2.ok, true); assert.strictEqual(classeur.feuilles.Examens.rows.length, 3);
+  const l = classeur.feuilles;
+  assert.strictEqual(post({ action: 'examen_noter', ...eleve, ids, reponses: { 1: 1 } }).tentative, 1);       // 1 bonne réponse sur 4
+  const bis = post({ action: 'examen_noter', etablissement: 'LYCÉE A', nom: 'kone', prenom: 'AWA', classe: '3e  a', ids, reponses: toutJuste });   // même élève, écrit autrement
+  assert.strictEqual(bis.ok, true); assert.strictEqual(bis.tentative, 2);
+  const rows = l['Examen final'].rows, col = n => rows[0].indexOf(n);
+  assert.strictEqual(rows.length, 2, 'toujours une seule ligne pour cet élève');
+  assert.strictEqual(rows[1][col('note')], 4); assert.strictEqual(rows[1][col('tentatives')], 2);
+  post({ action: 'examen_noter', ...eleve, ids, reponses: {} });                                               // 3e essai, raté : la note gardée ne baisse pas
+  assert.strictEqual(rows[1][col('note')], 4); assert.strictEqual(rows[1][col('tentatives')], 3); assert.strictEqual(rows[1][col('derniere_pct')], 0);
+  post({ action: 'examen_noter', ...eleve, nom: 'Traoré', ids, reponses: toutJuste });                          // un autre élève : nouvelle ligne
+  assert.strictEqual(rows.length, 3);
+});
+
+test("une copie dont les questions ne sont pas celles d'un vrai tirage est refusée", () => {
+  const { post, classeur } = monde();
+  for (const mauvais of [undefined, [], [1, 2], [1, 1, 3, 4], [1, 2, 3, 999], [1, 2, 3, 4, 4]])
+    assert.strictEqual(post({ action: 'examen_noter', ...eleve, ids: mauvais, reponses: toutJuste }).ok, false, JSON.stringify(mauvais));
+  assert.strictEqual(post({ action: 'examen_noter', ...eleve, ids: [1, 2], reponses: toutJuste }).ok, false);   // que des questions de l'Axe 1
+  assert.strictEqual(classeur.feuilles['Examen final'], undefined);
 });
 
 test("identité incomplète ou copie illisible : refusé, rien n'est écrit", () => {
   const { post, classeur } = monde();
-  assert.strictEqual(post({ action: 'examen_noter', axe: 1, ...eleve, nom: '', reponses: toutJuste }).ok, false);
-  assert.strictEqual(post({ action: 'examen_noter', axe: 1, ...eleve, reponses: 'oups' }).ok, false);
-  assert.strictEqual(classeur.feuilles.Examens, undefined);
+  assert.strictEqual(post({ action: 'examen_noter', ...eleve, ids, nom: '', reponses: toutJuste }).ok, false);
+  assert.strictEqual(post({ action: 'examen_noter', ...eleve, ids, reponses: 'oups' }).ok, false);
+  assert.strictEqual(classeur.feuilles['Examen final'], undefined);
 });
 
 test('réponses hors limites ignorées (0 point) : aucune triche par valeurs étranges', () => {
   const { post, classeur } = monde();
-  post({ action: 'examen_noter', axe: 1, ...eleve, reponses: { 1: 99, 2: -1, 3: 1.5, 4: 'x' } });
-  const l = classeur.feuilles.Examens.rows;
+  post({ action: 'examen_noter', ...eleve, ids, reponses: { 1: 99, 2: -1, 3: 1.5, 4: 'x' } });
+  const l = classeur.feuilles['Examen final'].rows;
   assert.strictEqual(l[1][l[0].indexOf('note')], 0);
 });
 
@@ -123,14 +148,14 @@ test("on ne peut pas écrire une fausse note par le formulaire générique", () 
   assert.strictEqual(post({ form: 'examen', nom: 'X', note: 20 }).ok, false);
 });
 
-test("le tableau de bord calcule moyenne, réussites, distinctions et les meilleurs retenus (classement général)", () => {
+test("le tableau de bord calcule moyenne, réussites (80 %) et les meilleurs retenus (classement général), sans distinction", () => {
   const { ctx } = monde();
-  const ligne = (nom, note) => ({ etablissement: 'Lycée A', nom, prenom: 'X', classe: '3e', note, total: 20, axe1: 5, axe2: 5 });
-  const D = { examens: [ligne('A', 20), ligne('B', 14), ligne('C', 10)] };   // 100 %, 70 %, 50 %
-  const o = JSON.parse(JSON.stringify(ctx.calculer(D, { seuilPct: 70, distinctionPct: 80, nbCertificats: 1 })));
-  assert.strictEqual(o.examens.copies, 3); assert.strictEqual(o.examens.reussis, 2);
+  const ligne = (nom, note) => ({ etablissement: 'Lycée A', nom, prenom: 'X', classe: '3e', note, total: 10, axe1: note / 2, axe2: note / 2 });
+  const D = { examens: [ligne('A', 10), ligne('B', 8), ligne('C', 5)] };   // 100 %, 80 %, 50 %
+  const o = JSON.parse(JSON.stringify(ctx.calculer(D, { seuilPct: 80, nbCertificats: 1 })));
+  assert.strictEqual(o.examens.copies, 3); assert.strictEqual(o.examens.reussis, 2);   // 100 % et 80 % passent, 50 % non
   assert.strictEqual(o.examens.parEtab[0].retenus, 1);          // 2 réussites mais 1 seul « meilleur » retenu (classement général)
-  assert.strictEqual(o.examens.retenus, 1); assert.strictEqual(o.examens.distinctions, 1);   // 100 % seulement dépasse 80
+  assert.strictEqual(o.examens.retenus, 1); assert.strictEqual(o.examens.distinctions, undefined);
   assert.strictEqual(o.examens.liste[0].nom, 'A');              // classement par note
   assert.strictEqual(o.personnes.length, 3);
 });
@@ -184,20 +209,12 @@ test("un participant n'a besoin que de son nom, ses prénoms et sa ville ; il pa
   assert.strictEqual(classeur.feuilles['Inscriptions formations'].rows.length, 3);
 });
 
-test("sans axe, ou avec un axe inconnu : ni questions ni correction", () => {
-  const { post } = monde();
-  assert.strictEqual(post({ action: 'examen_questions' }).ok, false);
-  assert.strictEqual(post({ action: 'examen_questions', axe: 3 }).ok, false);
-  assert.strictEqual(post({ action: 'examen_noter', ...eleve, reponses: toutJuste }).ok, false);
-});
-
-test("les deux examens d'un élève forment une seule ligne ; un seul axe ne compte pas pour le classement", () => {
+test("une personne = une ligne : sa meilleure note compte, même si la feuille garde plusieurs copies", () => {
   const { ctx } = monde();
-  const ligne = (nom, axe, note) => ({ etablissement: 'Lycée A', nom, prenom: 'X', classe: '3e', axe, note, total: 10, axe1: axe === 1 ? note : 0, axe2: axe === 2 ? note : 0 });
-  const D = { examens: [ligne('A', 1, 9), ligne('A', 2, 8), ligne('B', 1, 10)] };
-  const o = JSON.parse(JSON.stringify(ctx.calculer(D, { seuilPct: 70, distinctionPct: 80, nbCertificats: 200 })));
+  const ligne = (nom, note, tentatives) => ({ etablissement: 'Lycée A', nom, prenom: 'X', classe: '3e', note, total: 10, axe1: 0, axe2: 0, tentatives });
+  const D = { examens: [ligne('A', 6, 1), ligne('A', 9, 3), ligne('B', 10, 1)] };
+  const o = JSON.parse(JSON.stringify(ctx.calculer(D)));
   assert.strictEqual(o.examens.copies, 2);
-  const A = o.examens.liste.find(x => x.nom === 'A'), B = o.examens.liste.find(x => x.nom === 'B');
-  assert.strictEqual(A.note, 17); assert.strictEqual(A.total, 20); assert.strictEqual(A.complet, true); assert.strictEqual(A.retenu, true); assert.strictEqual(A.distinction, true);
-  assert.strictEqual(B.complet, false); assert.strictEqual(B.retenu, false);
+  const A = o.examens.liste.find(x => x.nom === 'A');
+  assert.strictEqual(A.pct, 90); assert.strictEqual(A.tentatives, 3); assert.strictEqual(A.reussi, true); assert.strictEqual(A.rang, 2); assert.strictEqual(A.retenu, true);
 });

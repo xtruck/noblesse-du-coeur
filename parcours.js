@@ -16,7 +16,7 @@ function renderParcours() {
 function pageAxe(id) {
   const axe = QUIZ.find(x => x.id === id), B = bilanQuiz(), mods = B.mods.filter(m => m.axeId === id), num = id === "axe2" ? 2 : 1;
   const [nom, titre] = axe.titre.split(" · "), faits = mods.filter(m => B.best[m.id] != null), suivant = mods.find(m => B.best[m.id] == null) || mods.find(m => etatModule(B.best, m) === "encours") || null;
-  const examenFait = (store.get("ndc_examen_fait", {}) || {})["axe" + num], pr = axeProgres(id), pret = pr.pret, reste = pr.restants.length;
+  const dejaExamen = !!examenFait(), EP = examenProgres(), pret = EP.pret, reste = EP.restants.length, autreAxe = num === 1 ? "axe2" : "axe1";
   document.title = axe.titre + " — La Noblesse du Cœur";
   const etape = (m, n) => {
     const e = etatModule(B.best, m), s = B.best[m.id], img = (IMG_MODULE[m.id] || {}).c;
@@ -27,14 +27,14 @@ function pageAxe(id) {
   };
   app().innerHTML = header() + `
   <section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">${esc(nom)}</span><h1>${titreHtml(num === 1 ? "L'art de la *paix*" : "L'art de l'*impact*")}</h1>
-    <p>${mods.length} modules à suivre dans l'ordre. Pour chacun : le cours, puis une auto-évaluation corrigée. Ensuite, l'examen final de l'axe.</p>
-    ${suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">${faits.length ? "Continuer" : "Commencer"} : module ${mods.indexOf(suivant) + 1}</a>` : `<a class="btn or" href="examen.html?axe=${num}">Passer à l'examen final</a>`}</div>
+    <p>${mods.length} modules à suivre dans l'ordre. Pour chacun : le cours, puis une auto-évaluation corrigée. Une fois les deux axes faits, un seul examen final.</p>
+    ${suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">${faits.length ? "Continuer" : "Commencer"} : module ${mods.indexOf(suivant) + 1}</a>` : `<a class="btn or" href="${pret ? "examen.html" : "parcours.html?a=" + autreAxe}">${pret ? "Passer à l'examen final" : "Continuer avec l'" + (num === 1 ? "Axe 2" : "Axe 1")}</a>`}</div>
     <div class="qtete-anneau">${anneau(mods.length ? faits.length / mods.length : 0, faits.length + " / " + mods.length, "petit")}<small>modules suivis</small></div></div></section>
   <main class="wrap" id="contenu" tabindex="-1">
     <h2 class="sec">Les modules, étape par étape</h2>
     <ol class="axe-etapes">${(() => { let der = ""; return mods.map((m, n) => { const t = m.partie && m.partie !== der ? `<li class="partie-t">${esc(m.partie)}</li>` : ""; der = m.partie || der; return t + etape(m, n); }).join(""); })()}</ol>
-    <div class="axe-examen"><div><span class="cont-eyebrow">Étape finale</span><h3>Examen final · ${esc(nom)}</h3><p>${examenFait ? "Ta copie est envoyée à la direction." : pret ? "Tout est validé : " + NB_QUESTIONS_EXAMEN[num] + " questions, une seule tentative, corrigées automatiquement." : "S'ouvre quand toutes les auto-évaluations de l'axe sont validées (" + SEUIL_ACCES_EXAMEN + " % minimum). Il en reste " + reste + "."}</p></div>
-      <a class="btn ${examenFait ? "sec" : pret ? "or" : "sec"}" href="examen.html?axe=${num}">${examenFait ? "Revoir" : pret ? "Passer l'examen" : "Voir ce qui reste"}</a></div>
+    <div class="axe-examen"><div><span class="cont-eyebrow">Étape finale</span><h3>Examen final · les deux axes</h3><p>${pret ? "Toutes les auto-évaluations sont faites : " + NB_QUESTIONS_EXAMEN + " questions, que tu peux repasser autant de fois que tu veux (la meilleure note est gardée)." : "Un seul examen sur l'Axe 1 et l'Axe 2. Il s'ouvre quand toutes les auto-évaluations sont faites : il en reste " + reste + "."}</p></div>
+      <a class="btn ${pret ? "or" : "sec"}" href="examen.html">${dejaExamen ? "Repasser l'examen" : pret ? "Passer l'examen" : "Voir ce qui reste"}</a></div>
     <div class="actions" style="margin-top:22px"><a class="btn sec" href="espace.html">Retour à mon espace</a><a class="btn sec" href="bibliotheque.html">Bibliothèque (cours, guides, fiches)</a></div></main>` + FOOT;
   allumerAnneaux();
   UIok();
@@ -148,7 +148,7 @@ function jouerQuestions(m) {
       <h2 tabindex="-1" id="enonce">${titre}</h2><p class="qres-mot">${bon} bonne${s} réponse${s} sur ${Q.length}. ${mot}${record ? " C'est ton meilleur score." : ""}</p>
       <div class="puces centre">${puce(bon, "bonnes")}${puce(Q.length - bon, "à revoir")}${puce(Math.floor(sec / 60) + " min " + String(sec % 60).padStart(2, "0"), "durée")}</div>
       <p class="envoi-etat" id="envoi-etat" role="status">Envoi du résultat…</p>
-      <div class="actions centre">${suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">Module suivant</a>` : `<a class="btn or" href="examen.html?axe=${numAxe}">${axeProgres(m.axeId).pret ? "Passer à l'examen final de l'Axe " + numAxe : "Voir l'examen final de l'Axe " + numAxe}</a>`}${!reussi ? `<a class="btn sec" href="pdf/cours/${coursModule(m)[0]}.pdf" target="_blank" rel="noopener">Relire le cours (PDF)</a>` : ""}<button type="button" class="btn sec" id="refaire">Refaire l'auto-évaluation</button><a class="btn sec" href="parcours.html?a=${esc(m.axeId)}">Retour à l'axe</a></div>
+      <div class="actions centre">${suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">Module suivant</a>` : `<a class="btn or" href="examen.html">${examenProgres().pret ? "Passer à l'examen final" : "Voir l'examen final"}</a>`}${!reussi ? `<a class="btn sec" href="pdf/cours/${coursModule(m)[0]}.pdf" target="_blank" rel="noopener">Relire le cours (PDF)</a>` : ""}<button type="button" class="btn sec" id="refaire">Refaire l'auto-évaluation</button><a class="btn sec" href="parcours.html?a=${esc(m.axeId)}">Retour à l'axe</a></div>
       ${m.reflexion ? blocReflexion(m) : ""}
       ${ratees.length ? `<h3 class="revoir-t">À revoir (${ratees.length})</h3><div class="revoir">${ratees.map(q => `<details class="rev"><summary>${esc(q.q)}</summary><p><b>Bonne réponse :</b> ${esc(q.ok)}</p><p>${esc(q.e)}</p><small>Dans le cours : ${esc(q.ref)}</small></details>`).join("")}</div>` : '<p class="felic">Aucune erreur : sans faute.</p>'}</div>`;
     scrollTo({ top: 0, behavior: sansMouvement() ? "auto" : "smooth" });
