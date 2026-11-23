@@ -792,3 +792,11 @@ a.pole:hover,a.pole:focus-visible{transform:translateY(-3px);box-shadow:var(--om
 @media (prefers-reduced-motion:reduce){.scene-cert .cert{opacity:1;transform:none;animation:none}.fete-fin{opacity:1;transform:none}}
 
 @font-face{font-family:"Dancing Script";src:url(fonts/DancingScript.ttf) format("truetype");font-weight:400 700;font-style:normal;font-display:swap}
+
+/* auto-évaluation = petit examen : réponses marquées sans correction, modules verrouillés, correction détaillée à la fin */
+.segs i.rep{background:var(--vert2);opacity:.55}
+.etape-axe.etat-verrou{opacity:.55;cursor:not-allowed;filter:grayscale(.6)}
+.rev.juste summary,.rev.fausse summary{display:flex;gap:10px;align-items:flex-start}
+.ico-rev{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;font:800 14px var(--sans)}
+.rev.juste .ico-rev{background:#dff3e6;color:#14472f}
+.rev.fausse .ico-rev{background:#fbe9cf;color:#7a5c17}

@@ -15,25 +15,25 @@ function renderParcours() {
 /* Page d'un axe : ses modules en étapes numérotées, puis l'examen final de l'axe */
 function pageAxe(id) {
   const axe = QUIZ.find(x => x.id === id), B = bilanQuiz(), mods = B.mods.filter(m => m.axeId === id), num = id === "axe2" ? 2 : 1;
-  const [nom, titre] = axe.titre.split(" · "), faits = mods.filter(m => B.best[m.id] != null), suivant = mods.find(m => B.best[m.id] == null) || mods.find(m => etatModule(B.best, m) === "encours") || null;
+  const [nom, titre] = axe.titre.split(" · "), faits = mods.filter(m => moduleValide(B.best, m)), suivant = mods.find(m => !moduleValide(B.best, m)) || null;
   const dejaExamen = !!examenFait(), EP = examenProgres(), pret = EP.pret, reste = EP.restants.length, autreAxe = num === 1 ? "axe2" : "axe1";
   document.title = axe.titre + " — La Noblesse du Cœur";
   const etape = (m, n) => {
-    const e = etatModule(B.best, m), s = B.best[m.id], img = (IMG_MODULE[m.id] || {}).c;
-    return `<li><a class="etape-axe etat-${e}" href="parcours.html?m=${esc(m.id)}" style="--k:${n}">
-      <span class="num-axe">${n + 1}</span>${img ? `<img class="mini-affiche" src="img/${img}.webp" width="60" height="90" loading="lazy" alt="">` : ""}
-      <span class="txt-axe"><b>${esc(m.titre.replace(/^Module \d+ · /, ""))}</b><span>${m.reflexion ? "Le cours, l'auto-évaluation (" + m.questions.length + " questions) et ta réflexion" : "Module " + (n + 1) + " · le cours, puis l'auto-évaluation (" + m.questions.length + " questions)"}</span></span>
-      <span class="mpuce">${s == null ? "À suivre" : (e === "maitrise" ? "Réussi · " : "À revoir · ") + s + " %"}</span></a></li>`;
+    const e = etatModule(B.best, m), s = B.best[m.id], img = (IMG_MODULE[m.id] || {}).c, verrou = n > 0 && !moduleValide(B.best, mods[n - 1]);
+    const corps = `<span class="num-axe">${n + 1}</span>${img ? `<img class="mini-affiche" src="img/${img}.webp" width="60" height="90" loading="lazy" alt="">` : ""}
+      <span class="txt-axe"><b>${esc(m.titre.replace(/^Module \d+ · /, ""))}</b><span>${verrou ? "Valide d'abord le module précédent (" + SEUIL_QUIZ + " % minimum)" : m.reflexion ? "Le cours, l'auto-évaluation (" + NB_QUESTIONS_QUIZ + " questions) et ta réflexion" : "Module " + (n + 1) + " · le cours, puis l'auto-évaluation (" + NB_QUESTIONS_QUIZ + " questions)"}</span></span>
+      <span class="mpuce">${verrou ? "Verrouillé" : s == null ? "À suivre" : (e === "maitrise" ? "Validé · " : "À refaire · ") + s + " %"}</span>`;
+    return verrou ? `<li><span class="etape-axe etat-verrou" style="--k:${n}" aria-disabled="true">${corps}</span></li>` : `<li><a class="etape-axe etat-${e}" href="parcours.html?m=${esc(m.id)}" style="--k:${n}">${corps}</a></li>`;
   };
   app().innerHTML = header() + `
   <section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">${esc(nom)}</span><h1>${titreHtml(num === 1 ? "L'art de la *paix*" : "L'art de l'*impact*")}</h1>
-    <p>${mods.length} modules à suivre dans l'ordre. Pour chacun : le cours, puis une auto-évaluation corrigée. Une fois les deux axes faits, un seul examen final.</p>
+    <p>${mods.length} modules à suivre dans l'ordre. Pour chacun : le cours, puis une auto-évaluation corrigée (${SEUIL_QUIZ} % pour passer au module suivant). Une fois les deux axes validés, un seul examen final.</p>
     ${suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">${faits.length ? "Continuer" : "Commencer"} : module ${mods.indexOf(suivant) + 1}</a>` : `<a class="btn or" href="${pret ? "examen.html" : "parcours.html?a=" + autreAxe}">${pret ? "Passer à l'examen final" : "Continuer avec l'" + (num === 1 ? "Axe 2" : "Axe 1")}</a>`}</div>
-    <div class="qtete-anneau">${anneau(mods.length ? faits.length / mods.length : 0, faits.length + " / " + mods.length, "petit")}<small>modules suivis</small></div></div></section>
+    <div class="qtete-anneau">${anneau(mods.length ? faits.length / mods.length : 0, faits.length + " / " + mods.length, "petit")}<small>modules validés</small></div></div></section>
   <main class="wrap" id="contenu" tabindex="-1">
     <h2 class="sec">Les modules, étape par étape</h2>
     <ol class="axe-etapes">${(() => { let der = ""; return mods.map((m, n) => { const t = m.partie && m.partie !== der ? `<li class="partie-t">${esc(m.partie)}</li>` : ""; der = m.partie || der; return t + etape(m, n); }).join(""); })()}</ol>
-    <div class="axe-examen"><div><span class="cont-eyebrow">Étape finale</span><h3>Examen final · les deux axes</h3><p>${pret ? "Toutes les auto-évaluations sont faites : " + NB_QUESTIONS_EXAMEN + " questions, que tu peux repasser autant de fois que tu veux (la meilleure note est gardée)." : "Un seul examen sur l'Axe 1 et l'Axe 2. Il s'ouvre quand toutes les auto-évaluations sont faites : il en reste " + reste + "."}</p></div>
+    <div class="axe-examen"><div><span class="cont-eyebrow">Étape finale</span><h3>Examen final · les deux axes</h3><p>${pret ? "Tous les modules sont validés : " + NB_QUESTIONS_EXAMEN + " questions, que tu peux repasser autant de fois que tu veux (la meilleure note est gardée)." : "Un seul examen sur l'Axe 1 et l'Axe 2. Il s'ouvre quand tous les modules sont validés (" + SEUIL_QUIZ + " % chacun) : il en reste " + reste + "."}</p></div>
       <a class="btn ${pret ? "or" : "sec"}" href="examen.html">${dejaExamen ? "Repasser l'examen" : pret ? "Passer l'examen" : "Voir ce qui reste"}</a></div>
     <div class="actions" style="margin-top:22px"><a class="btn sec" href="espace.html">Retour à mon espace</a><a class="btn sec" href="bibliotheque.html">Bibliothèque (cours, guides, fiches)</a></div></main>` + FOOT;
   allumerAnneaux();
@@ -57,7 +57,13 @@ function parcoursModule(m) {
   document.title = m.titre + " — Cours et auto-évaluation — La Noblesse du Cœur";
   const mods = tousModules().filter(x => x.axeId === m.axeId), rang = mods.findIndex(x => x.id === m.id) + 1, vu = store.get("ndc_parcours", {});
   const img = IMG_MODULE[m.id] || {}, cours = coursModule(m), court = m.titre.replace(/^Module \d+ · /, "");
-  const best = store.get("ndc_quiz", {})[m.id];
+  const best = store.get("ndc_quiz", {})[m.id], prec = mods[rang - 2];
+  if (prec && !moduleValide(store.get("ndc_quiz", {}) || {}, prec)) {            // un module ne s'ouvre que lorsque le précédent est validé
+    app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">${esc(m.axe)}</span><h1>Module <em>verrouillé</em></h1></div></div></section>
+      <main class="wrap" id="contenu" tabindex="-1"><div class="bloc no-rv entre"><p class="lead-b">Pour ouvrir « ${esc(court)} », valide d'abord « ${esc(prec.titre.replace(/^Module \d+ · /, ""))} » avec au moins ${SEUIL_QUIZ} % à son auto-évaluation.</p>
+      <div class="actions"><a class="btn or" href="parcours.html?m=${esc(prec.id)}">Aller au module précédent</a><a class="btn sec" href="parcours.html?a=${esc(m.axeId)}">Retour à l'axe</a></div></div></main>` + FOOT;
+    UIok(); return;
+  }
   app().innerHTML = `<a class="saut" href="#contenu">Aller au parcours</a><div class="qjeu">
     <header class="qbar"><a class="qx" href="parcours.html?a=${esc(m.axeId)}" aria-label="Retour à l'axe"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
       <div class="qtitre"><b>${esc(court)}</b><span>${esc(m.axe)} · ${m.partie ? esc(m.partie.split(" : ")[0]) : "module " + rang + " sur " + mods.length}</span></div></header>
@@ -71,7 +77,7 @@ function parcoursModule(m) {
             <a class="btn sec petit" id="ouvrir-cours" href="pdf/cours/${cours[0]}.pdf" target="_blank" rel="noopener">Ouvrir le cours (PDF, ${cours[3]})</a></div></li>
           ${img.f ? `<li><span class="pastille">2</span><div><b>Consulte la fiche du module</b><span>L'essentiel en images : objectifs, points clés, actions pratiques.</span></div></li>` : ""}
           <li><span class="pastille">${img.f ? 3 : 2}</span><div><button type="button" class="btn or petit" id="aller" ${vu[m.id] ? "" : "disabled"}>Commencer l'auto-évaluation</button>
-            <span class="info-eval">${m.questions.length} questions · correction après chaque question, même si tu te trompes. <em id="aide-aller">${vu[m.id] ? "" : "Ouvre d'abord le cours (étape 1)."}</em></span></div></li></ol>
+            <span class="info-eval">${NB_QUESTIONS_QUIZ} questions · ta note et la correction s'affichent à la fin ; il faut ${SEUIL_QUIZ} % pour passer au module suivant. <em id="aide-aller">${vu[m.id] ? "" : "Ouvre d'abord le cours (étape 1)."}</em></span></div></li></ol>
         ${img.f ? `<div class="fiches" aria-label="Fiche du module">${img.f.map((f, k) => `<a href="img/${f}.webp" target="_blank" rel="noopener"><img src="img/${f}.webp" width="720" height="1080" loading="lazy" alt="Fiche du module, page ${k + 1}"></a>`).join("")}</div>` : ""}
       </div></div></main></div>`;
   const aller = $("#aller"), debloquer = () => { const v = store.get("ndc_parcours", {}); v[m.id] = Date.now(); store.set("ndc_parcours", v); aller.disabled = false; $("#aide-aller").textContent = ""; $("#e-cours").classList.add("fait"); };
@@ -80,82 +86,91 @@ function parcoursModule(m) {
   UIok();
 }
 
+/* Auto-évaluation d'un module = un petit examen : on répond d'abord à TOUTES les questions, puis on voit sa note, puis la correction de chaque question.
+   Il faut SEUIL_QUIZ % pour valider le module. À chaque essai, les questions changent (voir tirerQuestions). */
 function jouerQuestions(m) {
   document.title = m.titre + " — Auto-évaluation — La Noblesse du Cœur";
-  // chaque partie : questions dans un ordre différent, et réponses mélangées (la bonne réponse change de place)
-  const Q = melanger(m.questions).map(q => ({ ...q, o: melanger([{ t: q.ok, ok: true }, ...q.faux.map(t => ({ t, ok: false }))]) }));
-  let i = 0, bon = 0, serie = 0, repondu = false; const ratees = [], debut = performance.now(), etats = Q.map(() => "");
+  const memoire = store.get("ndc_quiz_dernier", {}) || {}, dernier = memoire[m.id] || {};
+  const Q = tirerQuestions(m.questions.length, NB_QUESTIONS_QUIZ, dernier.q, dernier.r)
+    .map(idx => { const q = m.questions[idx]; return { ...q, idx, o: melanger([{ t: q.ok, ok: true }, ...q.faux.map(t => ({ t, ok: false }))]) }; });   // réponses mélangées : la bonne change de place
+  const rep = {}; let i = 0; const debut = performance.now();
   app().innerHTML = `<a class="saut" href="#contenu">Aller à la question</a><div class="qjeu">
     <header class="qbar"><a class="qx" href="parcours.html?m=${esc(m.id)}" aria-label="Quitter l'auto-évaluation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
-      <div class="qtitre"><b>${esc(m.titre.replace(/^Module \d+ · /, ""))}</b><span>Auto-évaluation · ${esc(m.axe)}</span></div><div class="qscore" title="Bonnes réponses"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg><b id="qb">0</b></div></header>
+      <div class="qtitre"><b>${esc(m.titre.replace(/^Module \d+ · /, ""))}</b><span>Auto-évaluation · ${esc(m.axe)}</span></div></header>
     <div class="segs" role="progressbar" aria-label="Avancement" aria-valuemin="1" aria-valuemax="${Q.length}" aria-valuenow="1">${Q.map(() => "<i></i>").join("")}</div>
     <main id="contenu" tabindex="-1"><div id="zone"></div></main></div>`;
   const zone = $("#zone"), segs = [...document.querySelectorAll(".segs i")];
-  const maj = () => { segs.forEach((s, k) => { s.className = etats[k] + (k === i && !etats[k] ? " now" : ""); }); $(".segs").setAttribute("aria-valuenow", i + 1); };
+  const maj = () => { segs.forEach((s, k) => { s.className = (rep[k] !== undefined ? "rep" : "") + (k === i ? " now" : ""); }); $(".segs").setAttribute("aria-valuenow", i + 1); };
 
   function question() {
-    repondu = false; maj();
+    maj();
     const q = Q[i];
     zone.innerHTML = `<div class="qcarte entre"><p class="qnum">Question ${i + 1} sur ${Q.length}</p><h2 tabindex="-1" id="enonce">${esc(q.q)}</h2><div class="qopts">${q.o.map((x, k) =>
-      `<button type="button" class="qopt" data-k="${k}" aria-keyshortcuts="${LETTRES[k]} ${k + 1}"><b>${LETTRES[k]}</b><span>${esc(x.t)}</span></button>`).join("")}</div>
-      <p class="astuce-clavier">Clavier : touches A, B, C, D (ou 1 à 4), puis Entrée.</p><div id="fb" aria-live="polite"></div></div>`;
-    zone.querySelectorAll(".qopt").forEach(b => b.onclick = () => repondre(+b.dataset.k));
+      `<button type="button" class="qopt${rep[i] === k ? " choisi" : ""}" data-k="${k}" aria-pressed="${rep[i] === k}" aria-keyshortcuts="${LETTRES[k]} ${k + 1}"><b>${LETTRES[k]}</b><span>${esc(x.t)}</span></button>`).join("")}</div>
+      <p class="astuce-clavier">Pas de correction maintenant : tu la verras à la fin, avec ta note. Clavier : touches A, B, C, D (ou 1 à 4), puis Entrée.</p>
+      <div class="actions">${i > 0 ? '<button type="button" class="btn sec" id="prec">Précédente</button>' : ""}<button type="button" class="btn ${rep[i] === undefined ? "sec" : "or"}" id="suiv">${i === Q.length - 1 ? "Terminer" : "Suivante"}</button></div></div>`;
+    zone.querySelectorAll(".qopt").forEach(b => b.onclick = () => {
+      rep[i] = +b.dataset.k;
+      zone.querySelectorAll(".qopt").forEach(x => { const on = x === b; x.classList.toggle("choisi", on); x.setAttribute("aria-pressed", on); });
+      $("#suiv").className = "btn or"; maj();
+    });
+    const pr = $("#prec"); if (pr) pr.onclick = () => { i--; question(); };
+    $("#suiv").onclick = () => { i++; i < Q.length ? question() : relecture(); };
     if (i > 0) { $("#enonce").focus({ preventScroll: true }); scrollTo({ top: 0, behavior: sansMouvement() ? "auto" : "smooth" }); }
   }
 
-  function repondre(k) {
-    if (repondu) return; repondu = true;
-    const q = Q[i], juste = q.o[k].ok;
-    zone.querySelectorAll(".qopt").forEach((b, j) => {
-      b.disabled = true;
-      if (q.o[j].ok) { b.classList.add("bon"); b.insertAdjacentHTML("beforeend", '<i class="tag">Bonne réponse</i>'); }
-      else if (j === k) { b.classList.add("faux"); b.insertAdjacentHTML("beforeend", '<i class="tag">Ta réponse</i>'); }
-    });
-    if (juste) { bon++; serie++; $("#qb").textContent = bon; } else { ratees.push(q); serie = 0; }
-    etats[i] = juste ? "s-ok" : "s-ko"; maj();
-    const dernier = i === Q.length - 1;
-    $("#fb").innerHTML = `<div class="qfeed ${juste ? "bon" : "mal"}"><div class="qfeed-t"><span class="ico" aria-hidden="true">${juste ? "✓" : "i"}</span><h3>${juste ? (serie >= 3 ? "Bonne réponse · série de " + serie : "Bonne réponse") : "Pas tout à fait"}</h3></div>
-      <p>${esc(q.e)}</p><small>Dans le cours : ${esc(q.ref)}</small>
-      <button type="button" class="btn ${juste ? "" : "or"}" id="suite">${dernier ? "Voir mon résultat" : "Question suivante"}</button></div>`;
-    $("#suite").onclick = suite;
-    $("#suite").focus({ preventScroll: true });
-    $("#suite").scrollIntoView({ behavior: sansMouvement() ? "auto" : "smooth", block: "nearest" });
+  function relecture() {
+    i = Q.length; maj(); segs.forEach(s => { s.className = s.className.replace(" now", ""); });
+    const manque = Q.map((q, k) => k).filter(k => rep[k] === undefined);
+    zone.innerHTML = `<div class="qcarte entre"><h2 tabindex="-1" id="enonce">Prêt(e) à voir ta note ?</h2>
+      <p>${Q.length - manque.length} réponse${Q.length - manque.length > 1 ? "s" : ""} sur ${Q.length}.</p>
+      ${manque.length ? `<div class="warn"><b>${manque.length} question${manque.length > 1 ? "s" : ""} sans réponse :</b> ${manque.map(k => `<a href="#" data-q="${k}">n° ${k + 1}</a>`).join(", ")}.</div>` : '<div class="ok">Toutes les questions ont une réponse.</div>'}
+      <p class="help">Tu verras ta note, puis la correction de chaque question.</p>
+      <div class="actions"><button class="btn or" id="note" type="button">Voir ma note</button><button class="btn sec" id="revoir" type="button">Revoir mes réponses</button></div></div>`;
+    zone.querySelectorAll("a[data-q]").forEach(l => l.onclick = ev => { ev.preventDefault(); i = +l.dataset.q; question(); });
+    $("#revoir").onclick = () => { i = 0; question(); };
+    $("#note").onclick = resultat;
+    $("#enonce").focus({ preventScroll: true });
   }
-  const suite = () => { i++; i < Q.length ? question() : resultat(); };
 
   /* clavier : A-D ou 1-4 choisissent une réponse ; Entrée passe à la suite */
   const touche = e => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = "abcd1234".indexOf(e.key.toLowerCase());
-    if (k >= 0 && !repondu && $(".qopt")) { const b = zone.querySelectorAll(".qopt")[k % 4]; if (b) { e.preventDefault(); b.click(); } }
-    else if (e.key === "Enter" && repondu && $("#suite") && document.activeElement !== $("#suite")) { e.preventDefault(); $("#suite").click(); }
+    if (k >= 0 && $(".qopt")) { const b = zone.querySelectorAll(".qopt")[k % 4]; if (b) { e.preventDefault(); b.click(); } }
+    else if (e.key === "Enter" && document.activeElement && document.activeElement.tagName !== "BUTTON" && document.activeElement.tagName !== "A") { const b = $("#suiv") || $("#note"); if (b) { e.preventDefault(); b.click(); } }
   };
   document.addEventListener("keydown", touche);
 
   function resultat() {
     document.removeEventListener("keydown", touche);
+    const juste = k => rep[k] !== undefined && Q[k].o[rep[k]].ok, bon = Q.filter((q, k) => juste(k)).length, ratees = Q.filter((q, k) => !juste(k));
     const pct = Math.round(bon / Q.length * 100), s = bon > 1 ? "s" : "", reussi = pct >= SEUIL_QUIZ, sec = Math.round((performance.now() - debut) / 1000);
     const best = store.get("ndc_quiz", {}), record = best[m.id] != null && pct > best[m.id];
     if (best[m.id] == null || pct > best[m.id]) { best[m.id] = pct; store.set("ndc_quiz", best); }
+    memoire[m.id] = { q: Q.map(q => q.idx), r: ratees.map(q => q.idx) }; store.set("ndc_quiz_dernier", memoire);   // pour que le prochain essai pose d'autres questions
     envoyerScore(m, bon, Q.length, pct);
-    const dansAxe = tousModules().filter(x => x.axeId === m.axeId), suivant = dansAxe[dansAxe.findIndex(x => x.id === m.id) + 1], numAxe = m.axeId === "axe2" ? 2 : 1;
-    const titre = pct >= 90 ? "Excellent !" : reussi ? "Module maîtrisé" : pct >= 50 ? "Bien parti" : "On s'accroche";
-    const mot = reussi ? "Tu maîtrises ce module." : "Relis le cours, puis réessaie : tu progresseras vite.";
+    const dansAxe = tousModules().filter(x => x.axeId === m.axeId), suivant = dansAxe[dansAxe.findIndex(x => x.id === m.id) + 1];
+    const titre = pct >= SEUIL_EXCELLENCE ? "Excellent !" : reussi ? "Module validé" : "Pas encore validé";
+    const mot = reussi ? "Tu peux passer au module suivant." : `Il faut au moins ${SEUIL_QUIZ} % (${Math.ceil(SEUIL_QUIZ * Q.length / 100)} bonnes réponses sur ${Q.length}) pour passer au module suivant. Lis la correction ci-dessous, puis recommence : les questions changent.`;
     const etincelles = reussi && !sansMouvement() ? Array.from({ length: 20 }, (_, n) => { const a = (n / 20) * 2 * Math.PI + Math.random() * .3, r = 90 + Math.random() * 60; return `<i class="etincelle" style="--k:${n};--dx:${Math.round(Math.cos(a) * r)}px;--dy:${Math.round(Math.sin(a) * r)}px"></i>`; }).join("") : "";
-    etats.fill(""); segs.forEach((x, k) => { x.className = Q[k] && ratees.includes(Q[k]) ? "s-ko" : "s-ok"; });
-    $(".qscore").hidden = true;
+    segs.forEach((x, k) => { x.className = juste(k) ? "s-ok" : "s-ko"; });
+    const correction = Q.map((q, k) => `<details class="rev ${juste(k) ? "juste" : "fausse"}"${juste(k) ? "" : " open"}><summary><span class="ico-rev" aria-hidden="true">${juste(k) ? "✓" : "✗"}</span> ${esc(q.q)}</summary>
+      ${juste(k) ? "" : `<p>${rep[k] === undefined ? "<b>Tu n'as pas répondu.</b>" : "<b>Ta réponse :</b> " + esc(q.o[rep[k]].t)}</p>`}<p><b>Bonne réponse :</b> ${esc(q.ok)}</p><p>${esc(q.e)}</p><small>Dans le cours : ${esc(q.ref)}</small></details>`).join("");
+    const suite = reussi ? (suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">Module suivant</a>` : `<a class="btn or" href="examen.html">${examenProgres().pret ? "Passer à l'examen final" : "Voir l'examen final"}</a>`) + (pct < 100 ? '<button type="button" class="btn sec" id="refaire">Refaire pour viser le sans-faute</button>' : "")
+      : `<button type="button" class="btn or" id="refaire">Recommencer avec de nouvelles questions</button><a class="btn sec" href="pdf/cours/${coursModule(m)[0]}.pdf" target="_blank" rel="noopener">Relire le cours (PDF)</a>`;
     zone.innerHTML = `<div class="qres entre"><div class="anneau-grand">${anneau(pct / 100, sansMouvement() ? pct + " %" : "0 %", "grand")}${etincelles}</div>
       <h2 tabindex="-1" id="enonce">${titre}</h2><p class="qres-mot">${bon} bonne${s} réponse${s} sur ${Q.length}. ${mot}${record ? " C'est ton meilleur score." : ""}</p>
       <div class="puces centre">${puce(bon, "bonnes")}${puce(Q.length - bon, "à revoir")}${puce(Math.floor(sec / 60) + " min " + String(sec % 60).padStart(2, "0"), "durée")}</div>
       <p class="envoi-etat" id="envoi-etat" role="status">Envoi du résultat…</p>
-      <div class="actions centre">${suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">Module suivant</a>` : `<a class="btn or" href="examen.html">${examenProgres().pret ? "Passer à l'examen final" : "Voir l'examen final"}</a>`}${!reussi ? `<a class="btn sec" href="pdf/cours/${coursModule(m)[0]}.pdf" target="_blank" rel="noopener">Relire le cours (PDF)</a>` : ""}<button type="button" class="btn sec" id="refaire">Refaire l'auto-évaluation</button><a class="btn sec" href="parcours.html?a=${esc(m.axeId)}">Retour à l'axe</a></div>
+      <div class="actions centre">${suite}<a class="btn sec" href="parcours.html?a=${esc(m.axeId)}">Retour à l'axe</a></div>
       ${m.reflexion ? blocReflexion(m) : ""}
-      ${ratees.length ? `<h3 class="revoir-t">À revoir (${ratees.length})</h3><div class="revoir">${ratees.map(q => `<details class="rev"><summary>${esc(q.q)}</summary><p><b>Bonne réponse :</b> ${esc(q.ok)}</p><p>${esc(q.e)}</p><small>Dans le cours : ${esc(q.ref)}</small></details>`).join("")}</div>` : '<p class="felic">Aucune erreur : sans faute.</p>'}</div>`;
+      <h3 class="revoir-t">La correction</h3><div class="revoir">${correction}</div></div>`;
     scrollTo({ top: 0, behavior: sansMouvement() ? "auto" : "smooth" });
     $("#enonce").focus({ preventScroll: true });
     allumerAnneaux();
     if (m.reflexion) brancherReflexion(m);
-    $("#refaire").onclick = () => { scrollTo(0, 0); jouerQuestions(m); };
+    const r = $("#refaire"); if (r) r.onclick = () => { scrollTo(0, 0); jouerQuestions(m); };
     if (!sansMouvement()) {   // le pourcentage monte jusqu'à sa valeur pendant que l'anneau se remplit
       const t0 = performance.now(), n = $(".anneau b");
       const image = t => { const p = Math.min(1, (t - t0 - 250) / 1100), e = 1 - Math.pow(1 - Math.max(p, 0), 3); n.textContent = Math.round(pct * e) + " %"; if (p < 1) requestAnimationFrame(image); };

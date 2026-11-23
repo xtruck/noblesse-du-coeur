@@ -21,13 +21,13 @@ function renderExamen() {
   if (!prog.pret) { verrou(); UIok(); return; }
   intro(); UIok();
 
-  /* l'examen s'ouvre quand toutes les auto-évaluations des deux axes ont été faites au moins une fois (peu importe la note) */
+  /* l'examen s'ouvre quand tous les modules des deux axes sont validés (75 % à chaque auto-évaluation) */
   function verrou() {
     zone.innerHTML = `<div class="bloc no-rv entre"><h2>L'examen s'ouvre bientôt</h2>
-      <p>L'examen final porte sur les <b>deux axes</b>. Il s'ouvre quand tu as fait <b>toutes les auto-évaluations</b> de l'Axe 1 et de l'Axe 2, quelle que soit ta note : tu peux les refaire autant que tu veux.</p>
-      <p class="help">Il te reste ${prog.restants.length} auto-évaluation${prog.restants.length > 1 ? "s" : ""} à faire :</p>
+      <p>L'examen final porte sur les <b>deux axes</b>. Il s'ouvre quand tu as <b>validé tous les modules</b> de l'Axe 1 et de l'Axe 2, avec au moins <b>75 %</b> à chaque auto-évaluation. Tu peux les refaire autant que tu veux : les questions changent à chaque essai.</p>
+      <p class="help">Il te reste ${prog.restants.length} module${prog.restants.length > 1 ? "s" : ""} à valider :</p>
       <ul class="restants">${prog.restants.map(m => `<li><a href="parcours.html?m=${esc(m.id)}">${esc(m.titre.replace(/^Module \d+ · /, ""))}</a></li>`).join("")}</ul>
-      <div class="actions"><a class="btn or" href="parcours.html?m=${esc(prog.restants[0].id)}">Continuer mes auto-évaluations</a><a class="btn sec" href="espace.html">Retour à mon espace</a></div></div>`;
+      <div class="actions"><a class="btn or" href="parcours.html?m=${esc(prog.restants[0].id)}">Continuer mes modules</a><a class="btn sec" href="espace.html">Retour à mon espace</a></div></div>`;
   }
 
   function intro() {

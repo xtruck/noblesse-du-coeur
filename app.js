@@ -671,21 +671,37 @@ const NB_QUESTIONS_EXAMEN = 7;                // un seul examen final : 4 questi
 const CLE_EXAMEN_FAIT = "ndc_examen_fait";   // { cle, n } : combien de copies cet appareil a envoyées
 const cleLocale = p => [p.etab, p.nom, p.prenom, p.classe].map(x => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim()).join("|");
 const examenFait = () => { const e = store.get(CLE_EXAMEN_FAIT, {}) || {}, p = profil(); return e.n > 0 && p && e.cle === cleLocale(p) ? e : null; };
-const SEUIL_QUIZ = 70;                       // % à partir duquel un module est « maîtrisé » (simple encouragement : l'examen final a son propre seuil)
+const SEUIL_QUIZ = 75;                       // % pour VALIDER un module et passer au suivant (4 bonnes réponses sur 5)
+const SEUIL_EXCELLENCE = 90;                 // % à partir duquel la note est « excellente » (5 sur 5)
+const NB_QUESTIONS_QUIZ = 5;                 // questions posées à chaque essai, tirées dans la réserve du module (8 à 12 questions)
+/* Tirage d'un essai : n questions de la réserve (on renvoie leurs numéros), toujours dans un ordre mélangé.
+   À partir du 2e essai, on prend d'abord les questions que l'élève n'a PAS vues au dernier essai, puis celles qu'il avait ratées, puis les autres :
+   l'essai suivant n'est jamais une copie du précédent, et il reste un vrai test. */
+function tirerQuestions(total, n, derniers, ratees, hasard) {
+  hasard = hasard || Math.random; derniers = derniers || []; ratees = ratees || [];
+  const brasser = t => { t = t.slice(); for (let i = t.length - 1; i > 0; i--) { const j = Math.floor(hasard() * (i + 1)); [t[i], t[j]] = [t[j], t[i]]; } return t; };
+  const tous = Array.from({ length: total }, (_, i) => i);
+  const neuves = brasser(tous.filter(i => !derniers.includes(i)));
+  const ratees2 = brasser(tous.filter(i => derniers.includes(i) && ratees.includes(i)));
+  const reussies = brasser(tous.filter(i => derniers.includes(i) && !ratees.includes(i)));
+  return brasser(neuves.concat(ratees2, reussies).slice(0, Math.min(n, total)));
+}
+
 const LETTRES = "ABCD";
 const melanger = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const sansMouvement = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const tousModules = () => typeof QUIZ === "undefined" ? [] : QUIZ.flatMap(a => a.modules.map(m => ({ ...m, axe: a.titre, axeId: a.id })));
 const etatModule = (best, m) => best[m.id] == null ? "afaire" : best[m.id] >= SEUIL_QUIZ ? "maitrise" : "encours";
-const LIBELLE_ETAT = { afaire: "À faire", encours: "À retravailler", maitrise: "Maîtrisé" };
+const moduleValide = (best, m) => best[m.id] >= SEUIL_QUIZ;
+const LIBELLE_ETAT = { afaire: "À faire", encours: "À retravailler", maitrise: "Validé" };
 const minutes = m => Math.max(2, Math.round(m.questions.length * 0.4));
-/* L'examen final (un seul, sur les deux axes) s'ouvre quand TOUTES les auto-évaluations des deux axes ont été faites au moins une fois, quelle que soit la note. Règle côté site : elle guide l'élève (le serveur ne la contrôle pas). */
-const examenProgres = () => { const best = store.get("ndc_quiz", {}) || {}, mods = tousModules(), restants = mods.filter(m => best[m.id] == null); return { mods, restants, pret: mods.length > 0 && restants.length === 0 }; };
+/* L'examen final (un seul, sur les deux axes) s'ouvre quand TOUS les modules sont validés (75 % à leur auto-évaluation). Règle côté site : elle guide l'élève (le serveur ne la contrôle pas). */
+const examenProgres = () => { const best = store.get("ndc_quiz", {}) || {}, mods = tousModules(), restants = mods.filter(m => !moduleValide(best, m)); return { mods, restants, pret: mods.length > 0 && restants.length === 0 }; };
 /* bilan de la progression de la personne (meilleur score de chaque module, gardé sur son appareil) */
 function bilanQuiz() {
   const best = store.get("ndc_quiz", {}), mods = tousModules();
   const essayes = mods.filter(m => best[m.id] != null), maitrises = mods.filter(m => etatModule(best, m) === "maitrise");
-  const suivant = mods.find(m => best[m.id] == null) || mods.filter(m => etatModule(best, m) === "encours").sort((a, b) => best[a.id] - best[b.id])[0] || null;
+  const suivant = mods.find(m => !moduleValide(best, m)) || null;
   return { best, mods, essayes, maitrises, suivant, total: mods.length,
            moyenne: essayes.length ? Math.round(essayes.reduce((s, m) => s + best[m.id], 0) / essayes.length) : null,
            pct: mods.length ? maitrises.length / mods.length : 0 };
@@ -762,15 +778,15 @@ function renderEspace() {
   const ac = acces(p), B = bilanQuiz(), E = etapes(), F = store.get("ndc_examen_fait", {}) || {}, eleve = p.type === "eleve";
   const idu = p.numero ? `<span class="idu">Matricule : ${esc(p.numero)}</span>` : "";
   const ident = eleve ? `${esc(p.etab)} · ${esc(p.classe)}` : esc([p.ville, p.structure].filter(Boolean).join(" · ") || "Participant(e)");
-  const axe = (id, nom, titre) => { const mods = B.mods.filter(m => m.axeId === id), faits = mods.filter(m => B.best[m.id] != null).length;
-    return { t: `${nom} · ${titre}`, d: `${mods.length} modules : pour chacun, le cours puis son auto-évaluation. ${faits} module${faits > 1 ? "s" : ""} suivi${faits > 1 ? "s" : ""} sur ${mods.length}.`, fait: mods.length > 0 && faits === mods.length, href: "parcours.html?a=" + id, axe: true }; };
+  const axe = (id, nom, titre) => { const mods = B.mods.filter(m => m.axeId === id), faits = mods.filter(m => moduleValide(B.best, m)).length;
+    return { t: `${nom} · ${titre}`, d: `${mods.length} modules : pour chacun, le cours puis son auto-évaluation (${SEUIL_QUIZ} % pour passer au suivant). ${faits} module${faits > 1 ? "s" : ""} validé${faits > 1 ? "s" : ""} sur ${mods.length}.`, fait: mods.length > 0 && faits === mods.length, href: "parcours.html?a=" + id, axe: true }; };
   const examensFaits = !!examenFait(), EP = examenProgres();
   const parcours = [
     { t: "Inscription", d: "Ton profil et ton matricule sont enregistrés.", fait: true },
     ...(eleve ? [{ t: "Évaluation initiale", d: "7 affirmations sur ton comportement : le point de départ.", fait: !!E.eval_avant, href: "form.html?f=eval&phase=avant&moi=1" }] : []),
     axe("axe1", "Axe 1", "L'art de la paix"),
     axe("axe2", "Axe 2", "L'art de l'impact"),
-    ...(ac.examen ? [{ t: "Examen final", d: `Un seul examen sur les deux axes : ${NB_QUESTIONS_EXAMEN} questions tirées au hasard. Tu peux le repasser autant de fois que tu veux, la meilleure note est gardée. ${examensFaits ? "Copies envoyées : " + examenFait().n + "." : EP.pret ? "Il est ouvert : à toi de jouer." : "Il s'ouvre quand toutes les auto-évaluations sont faites (" + EP.restants.length + " restante" + (EP.restants.length > 1 ? "s" : "") + ")."}`, fait: examensFaits, href: "examen.html" },
+    ...(ac.examen ? [{ t: "Examen final", d: `Un seul examen sur les deux axes : ${NB_QUESTIONS_EXAMEN} questions tirées au hasard. Tu peux le repasser autant de fois que tu veux, la meilleure note est gardée. ${examensFaits ? "Copies envoyées : " + examenFait().n + "." : EP.pret ? "Il est ouvert : à toi de jouer." : "Il s'ouvre quand tous les modules sont validés (" + EP.restants.length + " restante" + (EP.restants.length > 1 ? "s" : "") + ")."}`, fait: examensFaits, href: "examen.html" },
       { t: "Évaluation finale", d: "Les mêmes 7 affirmations : on mesure ta progression.", fait: !!E.eval_apres, href: "form.html?f=eval&phase=apres&moi=1", apres: examensFaits },
       { t: "Mon certificat", d: "Dès que tu as réussi l'examen (70 % minimum), télécharge ton certificat d'Ambassadeur en PDF, avec ton nom et ton matricule.", fait: !!E.certificat, href: "certificat.html?moi=1", apres: examensFaits }] : []),
   ];
@@ -779,10 +795,10 @@ function renderEspace() {
     return `<li class="etat-${etat}" style="--k:${n}"><span class="pastille">${e.fait ? "✓" : n + 1}</span><div><b>${e.t}</b><span>${e.d}</span></div>${ouvert && n > 0 ? `<a class="btn ${e.fait ? "sec" : "or"} petit" href="${e.href}">${e.fait ? "Revoir" : n === actuelle ? "Continuer" : "Ouvrir"}</a>` : e.apres === false ? '<span class="verrou">Après les examens</span>' : ""}</li>`; };
   const cible = actuelle >= 0 ? parcours[actuelle] : null;
   const suite = cible && cible.href && cible.apres !== false ? `<a class="continuer" href="${cible.href}"><span class="cont-eyebrow">Prochaine étape</span><b>${cible.t}</b><span>${cible.d}</span><i aria-hidden="true">→</i></a>` : "";
-  const ensemble = B.mods.filter(m => B.best[m.id] != null).length;
+  const ensemble = B.mods.filter(m => moduleValide(B.best, m)).length;
   app().innerHTML = header() + `
   <section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Mon espace</span><h1>Bonjour, <em>${esc(prenomDe(p))}</em></h1><p>${ident}</p>${idu}</div>
-    <div class="qtete-anneau">${anneau(B.total ? ensemble / B.total : 0, ensemble + " / " + B.total, "petit")}<small>modules suivis</small></div></div></section>
+    <div class="qtete-anneau">${anneau(B.total ? ensemble / B.total : 0, ensemble + " / " + B.total, "petit")}<small>modules validés</small></div></div></section>
   <main class="wrap" id="contenu" tabindex="-1">
     ${suite}
     <h2 class="sec">Ton parcours</h2><ol class="etapes-esp">${parcours.map(etapeHtml).join("")}</ol>
