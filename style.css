@@ -341,8 +341,9 @@ table.tb tr:last-child td{border-bottom:none}
 .cert{position:relative;max-width:980px;margin:16px auto;aspect-ratio:297/210;box-shadow:0 6px 24px rgba(0,0,0,.15)}
 .cert img{width:100%;height:100%;display:block;outline:none}
 .cert .cn{position:absolute;left:23.6%;top:35.6%;width:64%;text-align:center;font:italic 700 clamp(14px,3.2vw,32px) var(--serif);color:#14472f}
-.cert .cdt{position:absolute;left:72.7%;top:76%;font:clamp(8px,1.3vw,13px) var(--sans);color:#14472f}
-@media print{@page{size:A4 landscape;margin:0}body{background:#fff}.noprint,#pre,#sb,#nb,.haut,.tiroir,.voile{display:none!important}#app{animation:none!important;opacity:1!important}.cert{margin:0;max-width:none;width:297mm;height:210mm;box-shadow:none}.cert .cn{font-size:24pt}.cert .cdt{font-size:10pt}}
+.cert .cnum{position:absolute;left:73%;top:6.5%;width:23%;text-align:right;font:700 clamp(8px,1.5vw,15px) var(--sans);letter-spacing:.06em;color:#14472f}
+.cert .cdt{position:absolute;left:70.8%;width:12%;text-align:center;top:76.3%;font:clamp(8px,1.3vw,13px) var(--sans);color:#14472f}
+@media print{@page{size:A4 landscape;margin:0}body{background:#fff}.noprint,#pre,#sb,#nb,.haut,.tiroir,.voile{display:none!important}#app{animation:none!important;opacity:1!important}.cert{margin:0;max-width:none;width:297mm;height:210mm;box-shadow:none}.cert .cn{font-size:24pt}.cert .cnum{font-size:11pt}.cert .cdt{font-size:10pt}}
 
 fieldset.bloc{margin:0 0 20px;min-width:0}
 .bloc.solo .fld>.lb{display:none}
@@ -775,4 +776,5 @@ a.pole:hover,a.pole:focus-visible{transform:translateY(-3px);box-shadow:var(--om
 .bande.sombre .lien-formations{color:#fff}
 .bande.sombre .bientot{color:var(--or-clair)}
 .btn-image img{filter:drop-shadow(0 8px 16px rgba(0,0,0,.35))}
-.bande.sombre .btn.sec{background:#fff;color:var(--vert);border-color:var(--or-clair)}
+.bande.sombre .btn.sec{background:#1f8a55;color:#fff;border:2px solid var(--or-clair);font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.bande.sombre .btn.sec:hover,.bande.sombre .btn.sec:focus-visible{background:#26a367}

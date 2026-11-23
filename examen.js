@@ -1,5 +1,5 @@
 /* Examen final noté — La Noblesse du Cœur : UN SEUL examen sur les deux axes (L'art de la paix et L'art de l'impact).
-   10 questions tirées au hasard (5 de l'Axe 1, sensibilisation comprise, et 5 de l'Axe 2) : chaque tentative donne d'autres questions.
+   7 questions tirées au hasard (4 de l'Axe 1, sensibilisation comprise, et 3 de l'Axe 2) : chaque tentative donne d'autres questions.
    Le navigateur ne connaît JAMAIS les bonnes réponses : il reçoit les questions du serveur, garde les choix de l'élève,
    puis envoie la copie. La correction, la note et l'enregistrement sont faits par le serveur (backend/Code.gs).
    L'élève peut repasser l'examen autant de fois qu'il veut : le serveur compte les tentatives et garde la meilleure note. */
@@ -33,10 +33,10 @@ function renderExamen() {
   function intro() {
     const f = examenFait();
     zone.innerHTML = `<div class="bloc no-rv entre"><h2>${f ? "Repasser l'examen" : "Avant de commencer"}</h2>
-      <ul class="regles"><li><b>${NB_QUESTIONS_EXAMEN} questions</b> sur les deux axes : 5 sur l'Axe 1 (la paix et la sensibilisation) et 5 sur l'Axe 2 (l'impact).</li>
+      <ul class="regles"><li><b>${NB_QUESTIONS_EXAMEN} questions</b> sur les deux axes : 4 sur l'Axe 1 (la paix et la sensibilisation) et 3 sur l'Axe 2 (l'impact).</li>
       <li><b>Tu peux le repasser autant de fois que tu veux.</b> Les questions changent à chaque tentative et la meilleure note est gardée.${f ? ` Tu as déjà envoyé ${f.n} copie${f.n > 1 ? "s" : ""}.` : ""}</li>
       <li>Tu peux revenir sur une question avant d'envoyer. Une question sans réponse ne rapporte pas de point.</li>
-      <li>La note est calculée par le serveur et transmise à la direction du programme. Le certificat d'Ambassadeur est le même pour tous : il revient aux 200 meilleurs résultats.</li></ul>
+      <li>Ta note et le corrigé s'affichent tout de suite après l'envoi. Le certificat d'Ambassadeur est le même pour tous : dès que tu atteins 70 %, tu peux le télécharger avec ton nom et ton matricule.</li></ul>
       <div id="msg" aria-live="polite"></div>
       <div class="actions"><button class="btn or" id="go" type="button">${f ? "Je recommence l'examen" : "Je commence l'examen"}</button><a class="btn sec" href="espace.html">Retour à mon espace</a></div></div>`;
     $("#go").onclick = demarrer;
@@ -91,15 +91,18 @@ function renderExamen() {
 
   function termine(r) {
     const evalFaite = store.get("ndc_etapes", {}).eval_apres, note = r.note, total = r.total, reussi = r.reussi, tentative = r.tentative || 1;
-    const n = 20, feu = UI_REDUIT() ? "" : Array.from({ length: n }, (_, k) => { const a = (k / n) * 2 * Math.PI + Math.random() * .3, rr = 90 + Math.random() * 110; return `<i class="etincelle" style="--k:${k};--dx:${Math.round(Math.cos(a) * rr)}px;--dy:${Math.round(Math.sin(a) * rr)}px"></i>`; }).join("");
+    const n = 20, feu = UI_REDUIT() || !reussi ? "" : Array.from({ length: n }, (_, k) => { const a = (k / n) * 2 * Math.PI + Math.random() * .3, rr = 90 + Math.random() * 110; return `<i class="etincelle" style="--k:${k};--dx:${Math.round(Math.cos(a) * rr)}px;--dy:${Math.round(Math.sin(a) * rr)}px"></i>`; }).join("");
     const prog = $("#prog"); if (prog) prog.hidden = true;
+    const corriges = (r.corriges || []).map(c => `<details class="rev"${c.juste ? "" : " open"}><summary>${c.juste ? "✓" : "✗"} ${esc(c.q)}</summary><p><b>Bonne réponse :</b> ${esc(c.bonne)}</p>${c.juste ? "" : `<p>${c.choix ? "Ta réponse : " + esc(c.choix) : "Tu n'as pas répondu."}</p>`}</details>`).join("");
+    const cert = r.certificat === "ouvert" ? `<p class="lead-b">Ton certificat d'Ambassadeur est prêt : tu peux le télécharger avec ton nom et ton matricule.</p>` : `<p class="help">Il faut au moins 70 % pour le certificat. Tu peux repasser l'examen : ta meilleure note est gardée.</p>`;
     zone.innerHTML = `<div class="bloc no-rv bienvenue"><div class="feu" aria-hidden="true">${feu}</div>
       <svg class="coche" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="25"/><path d="M14 27l8 8 16-17"/></svg>
-      <h2 tabindex="-1" id="enonce">Copie <em>envoyée</em></h2>
-      <p class="lead-b">Merci, ${esc(pr.prenom || pr.nom)}. Ta copie (tentative n° ${tentative}) a été corrigée par le serveur et transmise à la direction du programme. La meilleure de tes notes est gardée.</p>
-      ${note != null ? `<p class="lead-b"><b>Ta note : ${note} / ${total}</b>${reussi ? " — bravo !" : ""}</p>` : "<p class=\"help\">Les résultats te seront communiqués par l'équipe du programme.</p>"}
-      ${evalFaite ? "" : `<p class="lead-b">Dernière étape : l'évaluation finale (2 minutes).</p>`}
-      <div class="actions" style="justify-content:center">${evalFaite ? "" : '<a class="btn or" href="form.html?f=eval&phase=apres&moi=1">Faire l\'évaluation finale</a>'}<a class="btn sec" href="examen.html">Repasser l'examen</a><a class="btn sec" href="espace.html">Retour à mon espace</a></div></div>`;
+      <h2 tabindex="-1" id="enonce">${reussi ? "Bravo, tu as <em>réussi</em> !" : "Copie <em>envoyée</em>"}</h2>
+      ${note != null ? `<p class="lead-b"><b>Ta note : ${note} / ${total}</b> (${r.pct} %)${r.meilleurPct > r.pct ? " · ta meilleure note : " + r.meilleurPct + " %" : ""}</p>` : "<p class=\"help\">Les résultats te seront communiqués par l'équipe du programme.</p>"}
+      <p class="help">Tentative n° ${tentative} · la meilleure de tes notes est gardée.</p>
+      ${cert}
+      <div class="actions" style="justify-content:center">${r.certificat === "ouvert" ? '<a class="btn or" href="certificat.html?moi=1">Télécharger mon certificat</a>' : ""}${evalFaite ? "" : '<a class="btn or" href="form.html?f=eval&phase=apres&moi=1">Faire l\'évaluation finale</a>'}<a class="btn sec" href="examen.html">Repasser l'examen</a><a class="btn sec" href="espace.html">Retour à mon espace</a></div>
+      ${corriges ? `<h3 class="revoir-t">Le corrigé</h3><div class="revoir" style="text-align:left">${corriges}</div>` : ""}</div>`;
     $("#enonce").focus({ preventScroll: true }); scrollTo({ top: 0, behavior: UI_REDUIT() ? "auto" : "smooth" });
   }
 }

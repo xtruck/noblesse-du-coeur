@@ -74,15 +74,15 @@ test("les questions envoyées au navigateur ne contiennent aucune bonne réponse
   r.questions.forEach(q => { assert.strictEqual(q.options.length, 4); assert.deepStrictEqual([...q.options.map(o => o.id)].sort(), [0, 1, 2, 3]); assert.strictEqual(q.bonne, undefined); });
 });
 
-test("le tirage prend au plus 5 questions par axe dans la banque et change à chaque fois", () => {
-  const banque = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, axe: i < 15 ? 1 : 2, q: 'Q' + i, options: ['a', 'b', 'c', 'd'], bonne: 0 }));
+test("le tirage donne 7 questions (4 de l'Axe 1, 3 de l'Axe 2) et change à chaque fois", () => {
+  const banque = Array.from({ length: 25 }, (_, i) => ({ id: i + 1, axe: i < 15 ? 1 : 2, q: 'Q' + i, options: ['a', 'b', 'c', 'd'], bonne: 0 }));
   const { post } = monde({ banque });
   const tirage = () => post({ action: 'examen_questions' }).questions;
   const a = tirage();
-  assert.strictEqual(a.length, 10); assert.strictEqual(a.filter(q => q.axe === 1).length, 5); assert.strictEqual(a.filter(q => q.axe === 2).length, 5);
-  assert.strictEqual(new Set(a.map(q => q.id)).size, 10);
+  assert.strictEqual(a.length, 7); assert.strictEqual(a.filter(q => q.axe === 1).length, 4); assert.strictEqual(a.filter(q => q.axe === 2).length, 3);
+  assert.strictEqual(new Set(a.map(q => q.id)).size, 7);
   const vus = new Set(a.map(q => q.id)); for (let k = 0; k < 20; k++) tirage().forEach(q => vus.add(q.id));
-  assert.ok(vus.size > 10, 'les tentatives suivantes posent d\'autres questions');
+  assert.ok(vus.size > 7, "les tentatives suivantes posent d'autres questions");
 });
 
 test('correction : tout juste, rien, et réponses partielles', () => {
@@ -95,15 +95,36 @@ test('correction : tout juste, rien, et réponses partielles', () => {
   assert.strictEqual(c({ 1: '1', 2: 2 }).note, 1);            // une chaîne n'est pas un choix valide
 });
 
-test("une copie est corrigée par le serveur, enregistrée, et la note n'est pas renvoyée à l'élève", () => {
+test("une copie est corrigée par le serveur, enregistrée ; l'élève reçoit tout de suite sa note et le corrigé", () => {
   const { post, classeur } = monde();
   const r = post({ action: 'examen_noter', ...eleve, ids, reponses: toutJuste });
-  assert.strictEqual(r.ok, true); assert.strictEqual(r.note, undefined); assert.strictEqual(r.tentative, 1);
+  assert.strictEqual(r.ok, true); assert.strictEqual(r.note, 4); assert.strictEqual(r.total, 4); assert.strictEqual(r.pct, 100); assert.strictEqual(r.reussi, true);
+  assert.strictEqual(r.tentative, 1); assert.strictEqual(r.certificat, 'ouvert');
+  assert.strictEqual(r.corriges.length, 4); assert.ok(r.corriges.every(c => c.juste === true && typeof c.bonne === 'string'));
   const l = classeur.feuilles['Examen final'].rows;
   assert.strictEqual(l.length, 2);                              // en-tête + une copie
   const col = n => l[0].indexOf(n);
   assert.strictEqual(l[1][col('note')], 4); assert.strictEqual(l[1][col('total')], 4);
   assert.strictEqual(l[1][col('axe1')], 2); assert.strictEqual(l[1][col('axe2')], 2); assert.strictEqual(l[1][col('tentatives')], 1);
+});
+
+test("une mauvaise copie : le corrigé montre la bonne réponse, et le certificat reste fermé sous 70 %", () => {
+  const { post } = monde();
+  const r = post({ action: 'examen_noter', ...eleve, ids, reponses: { 1: 99 } });
+  assert.strictEqual(r.ok, true); assert.strictEqual(r.reussi, false); assert.strictEqual(r.certificat, 'non');
+  assert.ok(r.corriges.every(c => c.juste === false && c.choix === null && c.bonne));
+});
+
+test("certificat : ouvert dès la réussite, avec le nom et le matricule donnés par le serveur ; fermé sinon", () => {
+  const { post } = monde();
+  assert.strictEqual(post({ action: 'certificat', ...eleve }).certificat, 'aucun');              // pas encore d'examen
+  post({ action: 'examen_noter', ...eleve, numero: 'NDC-2026-0007', ids, reponses: { 1: 99 } });
+  assert.strictEqual(post({ action: 'certificat', ...eleve }).certificat, 'non');                // 0 %
+  post({ action: 'examen_noter', ...eleve, numero: 'NDC-2026-0007', ids, reponses: toutJuste });
+  const c = post({ action: 'certificat', ...eleve });
+  assert.strictEqual(c.ok, true); assert.strictEqual(c.certificat, 'ouvert'); assert.strictEqual(c.nom, 'Koné'); assert.strictEqual(c.prenom, 'Awa'); assert.strictEqual(c.numero, 'NDC-2026-0007');
+  assert.strictEqual(post({ action: 'certificat', ...eleve, nom: 'Inconnu' }).certificat, 'aucun');
+  assert.strictEqual(post({ action: 'certificat', ...eleve, nom: '' }).ok, false);
 });
 
 test("l'élève peut repasser l'examen : une seule ligne, tentatives comptées, la meilleure note est gardée", () => {

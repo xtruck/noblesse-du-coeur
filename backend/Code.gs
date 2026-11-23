@@ -22,10 +22,10 @@ var ONGLET = { engagement: 'Responsables', eval: 'Évaluation élève', ens: 'Gr
    (jamais sur GitHub : le site public n'a donc aucun moyen de connaître les réponses).
    L'examen ne s'ouvre que si la propriété du script EXAMEN_OUVERT vaut « oui ». */
 var ONGLET_EXAMEN = 'Examen final';   // une ligne par élève : sa meilleure note et son nombre de tentatives
-var EXAMEN_SEUIL_PCT = 80;          // certificat d'Ambassadeur : à partir de 80/100 (un seul certificat pour tous, sans distinction)
+var EXAMEN_SEUIL_PCT = 70;          // réussite et certificat d'Ambassadeur : à partir de 70/100 (un seul certificat pour tous, sans distinction)
 var EXAMEN_NB_CERTIFICATS = 200;    // les 200 meilleurs, classement général des DEUX lycées réunis
-var EXAMEN_PAR_AXE = 5;             // un seul examen de 10 questions : 5 tirées au hasard dans l'Axe 1, 5 dans l'Axe 2
-var EXAMEN_AFFICHER_NOTE = false;   // false : l'élève voit « copie enregistrée », les notes restent pour la direction
+var EXAMEN_PAR_AXE = { 1: 4, 2: 3 };   // un seul examen de 7 questions : 4 tirées au hasard dans l'Axe 1, 3 dans l'Axe 2
+var EXAMEN_AFFICHER_NOTE = true;    // l'élève voit tout de suite sa note et le corrigé ; le certificat s'ouvre tout seul dès que la note atteint le seuil
 
 /* Limites contre les envois abusifs (le site est public) */
 var MAX_OCTETS = 200000, MAX_TEXTE = 2000, MAX_LIGNES = 200, MAX_COLONNES = 60;
@@ -68,6 +68,7 @@ function doPost(e) {
   if (d.site_web) return json_({ ok: true });             // champ piège caché : seuls les robots le remplissent
   if (d.action === 'examen_questions') return examenQuestions_(d);   // examen noté : questions SANS les bonnes réponses
   if (d.action === 'examen_noter') return examenNoter_(d);          // examen noté : correction faite ici, jamais dans le navigateur
+  if (d.action === 'certificat') return certificatDonnees_(d);      // certificat : nom et matricule donnés par le serveur
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(25000)) return json_({ ok: false, error: 'Le serveur est très sollicité. Réessayez dans un instant.' });
@@ -171,9 +172,9 @@ function examenOuvert_() { return PropertiesService.getScriptProperties().getPro
 function melanger_(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
 /* Questions envoyées au navigateur : jamais la bonne réponse. Chaque choix garde son numéro d'origine (id) ; l'ordre affiché est mélangé. */
-/* Un seul examen final : 10 questions tirées au hasard (5 de l'Axe 1, sensibilisation comprise, et 5 de l'Axe 2). Chaque tentative donne d'autres questions. */
+/* Un seul examen final : 7 questions tirées au hasard (4 de l'Axe 1, sensibilisation comprise, et 3 de l'Axe 2). Chaque tentative donne d'autres questions. */
 function banqueAxe_(axe) { return examenBanque_().filter(function (q) { return (q.axe === 2 ? 2 : 1) === axe; }); }
-function nbParAxe_(axe) { return Math.min(EXAMEN_PAR_AXE, banqueAxe_(axe).length); }
+function nbParAxe_(axe) { return Math.min(EXAMEN_PAR_AXE[axe], banqueAxe_(axe).length); }
 
 function examenQuestions_(d) {
   if (!examenBanque_().length) return json_({ ok: false, error: 'L\'examen n\'est pas encore installé.' });
@@ -229,11 +230,12 @@ function examenNoter_(d) {
     var compact = tirees.map(function (q) { return q.id + ':' + (rep[q.id] === undefined ? '-' : rep[q.id]); }).join(' ');
     var ligne = [new Date(), cle, id.numero || '', id.etablissement, id.nom, id.prenom, id.classe, r.note, r.total, r.axe1, r.axe2, r.pct, 1, r.pct, compact];
     var deja = sh.getLastRow() > 1 ? sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(cle).matchEntireCell(true).matchCase(true).findNext() : null;
-    var tentative = 1;
+    var tentative = 1, meilleurPct = r.pct;
     if (deja) {                                           // nouvelle tentative : on compte, et on ne remplace que si la note est meilleure
       var rang = deja.getRow(), cur = sh.getRange(rang, 1, 1, entete.length).getValues()[0], i = function (k) { return entete.indexOf(k); };
       tentative = (Number(cur[i('tentatives')]) || 1) + 1;
       var meilleure = r.pct > (Number(cur[i('pct')]) || 0);
+      meilleurPct = meilleure ? r.pct : (Number(cur[i('pct')]) || 0);
       var nouvelle = meilleure ? ligne.slice() : cur.slice();
       nouvelle[0] = new Date(); nouvelle[i('tentatives')] = tentative; nouvelle[i('derniere_pct')] = r.pct;
       if (!nouvelle[i('numero')] && id.numero) nouvelle[i('numero')] = id.numero;
@@ -244,12 +246,42 @@ function examenNoter_(d) {
       plage.setValues([ligne]);
     }
     var rep2 = { ok: true, enregistre: true, tentative: tentative };
-    if (EXAMEN_AFFICHER_NOTE) { rep2.note = r.note; rep2.total = r.total; rep2.reussi = r.pct >= EXAMEN_SEUIL_PCT; }
+    if (EXAMEN_AFFICHER_NOTE) {
+      rep2.note = r.note; rep2.total = r.total; rep2.pct = r.pct; rep2.reussi = r.pct >= EXAMEN_SEUIL_PCT; rep2.meilleurPct = meilleurPct;
+      rep2.certificat = certificatStatut_(sh, meilleurPct);
+      rep2.corriges = tirees.map(function (q) {                     // le corrigé n'est donné qu'APRÈS l'envoi de la copie
+        var ch = rep[q.id];
+        return { q: q.q, axe: q.axe === 2 ? 2 : 1, choix: ch === undefined ? null : q.options[ch], bonne: q.options[q.bonne], juste: ch === q.bonne };
+      });
+    }
     return json_(rep2);
   } catch (err) {
     console.error(err);
     return json_({ ok: false, error: 'Enregistrement impossible. Réessayez dans un instant.' });
   } finally { lock.releaseLock(); }
+}
+
+/* Certificat d'Ambassadeur, le même pour tous : il s'ouvre automatiquement dès que la meilleure note atteint le seuil ('ouvert'), sinon 'non'.
+   Les 200 meilleurs résultats restent classés dans le tableau de bord (cérémonie), sans différence de certificat. */
+function certificatStatut_(sh, pct) { return pct >= EXAMEN_SEUIL_PCT ? 'ouvert' : 'non'; }
+
+/* Ce que l'élève peut demander : son statut, et (si le certificat est ouvert) son nom et son matricule, tels que le serveur les connaît. */
+function certificatDonnees_(d) {
+  var id = propre_({ etablissement: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe });
+  var manque = ['etablissement', 'nom', 'prenom', 'classe'].filter(function (k) { return !id[k] || !String(id[k]).trim(); });
+  if (manque.length) return json_({ ok: false, error: 'Renseignez votre établissement, nom, prénoms et classe.' });
+  var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(ONGLET_EXAMEN), cle = cleEleve_(id);
+  if (!sh || sh.getLastRow() < 2) return json_({ ok: true, certificat: 'aucun' });
+  var trouve = sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(cle).matchEntireCell(true).matchCase(true).findNext();
+  if (!trouve) return json_({ ok: true, certificat: 'aucun' });
+  var entete = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0], ligne = sh.getRange(trouve.getRow(), 1, 1, entete.length).getValues()[0];
+  var pct = Number(ligne[entete.indexOf('pct')]) || 0, statut = certificatStatut_(sh, pct), rep = { ok: true, certificat: statut, pct: pct };
+  if (statut === 'ouvert') {
+    var numero = String(ligne[entete.indexOf('numero')] || '');
+    if (!numero) { var insc = ss.getSheetByName(ONGLET.eleve_inscr); numero = insc ? numeroExistant_(insc, cle) || '' : ''; }
+    rep.nom = String(ligne[entete.indexOf('nom')] || ''); rep.prenom = String(ligne[entete.indexOf('prenom')] || ''); rep.numero = numero;
+  }
+  return json_(rep);
 }
 
 function doGet() { return json_({ ok: true, service: 'La Noblesse du Cœur' }); }
@@ -264,7 +296,7 @@ function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).se
 /* ---------- calculs (fonction pure, testée dans tests/calculer.test.js) ---------- */
 function calculer(D, opts) {
   opts = opts || {};
-  var seuil = typeof opts.seuilPct === 'number' ? opts.seuilPct : 80, nbCert = typeof opts.nbCertificats === 'number' ? opts.nbCertificats : 200;
+  var seuil = typeof opts.seuilPct === 'number' ? opts.seuilPct : 70, nbCert = typeof opts.nbCertificats === 'number' ? opts.nbCertificats : 200;
   function num(x) { return x === '' || x === null || x === undefined || isNaN(Number(x)) ? null : Number(x); }
   function moy(a) { a = a.filter(function (x) { return x !== null; }); return a.length ? a.reduce(function (s, x) { return s + x; }, 0) / a.length : null; }
   function r2(x) { return x === null ? null : Math.round(x * 100) / 100; }
