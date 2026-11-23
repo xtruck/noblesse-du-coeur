@@ -338,12 +338,9 @@ table.tb tr:last-child td{border-bottom:none}
 @keyframes brille{to{transform:translateX(100%)}}
 
 /* ---------- certificat ---------- */
-.cert{position:relative;max-width:980px;margin:16px auto;aspect-ratio:297/210;box-shadow:0 6px 24px rgba(0,0,0,.15)}
-.cert img{width:100%;height:100%;display:block;outline:none}
-.cert .cn{position:absolute;left:23.6%;top:35.6%;width:64%;text-align:center;font:italic 700 clamp(14px,3.2vw,32px) var(--serif);color:#14472f}
-.cert .cnum{position:absolute;left:73%;top:6.5%;width:23%;text-align:right;font:700 clamp(8px,1.5vw,15px) var(--sans);letter-spacing:.06em;color:#14472f}
-.cert .cdt{position:absolute;left:70.8%;width:12%;text-align:center;top:76.3%;font:clamp(8px,1.3vw,13px) var(--sans);color:#14472f}
-@media print{@page{size:A4 landscape;margin:0}body{background:#fff}.noprint,#pre,#sb,#nb,.haut,.tiroir,.voile{display:none!important}#app{animation:none!important;opacity:1!important}.cert{margin:0;max-width:none;width:297mm;height:210mm;box-shadow:none}.cert .cn{font-size:24pt}.cert .cnum{font-size:11pt}.cert .cdt{font-size:10pt}}
+.cert{position:relative;max-width:980px;margin:16px auto;aspect-ratio:2600/1732;box-shadow:0 6px 24px rgba(0,0,0,.15)}
+.cert img,.cert canvas{width:100%;height:100%;display:block;outline:none}
+@media print{@page{size:A4 landscape;margin:0}body{background:#fff}.noprint,#pre,#sb,#nb,.haut,.tiroir,.voile{display:none!important}#app{animation:none!important;opacity:1!important}.cert{margin:0;max-width:none;width:297mm;height:auto;box-shadow:none}}
 
 fieldset.bloc{margin:0 0 20px;min-width:0}
 .bloc.solo .fld>.lb{display:none}
@@ -778,3 +775,20 @@ a.pole:hover,a.pole:focus-visible{transform:translateY(-3px);box-shadow:var(--om
 .btn-image img{filter:drop-shadow(0 8px 16px rgba(0,0,0,.35))}
 .bande.sombre .btn.sec{background:#1f8a55;color:#fff;border:2px solid var(--or-clair);font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.35)}
 .bande.sombre .btn.sec:hover,.bande.sombre .btn.sec:focus-visible{background:#26a367}
+
+/* certificat : mise en scène de la remise (confettis, puis le diplôme apparaît, puis le mot de la fin) */
+.fete{padding-top:26px;text-align:center}
+.fete-titre{font:300 clamp(30px,7vw,52px)/1.1 var(--serif);color:var(--vert);margin:6px 0 8px}
+.fete-titre em{color:var(--or-texte);font-style:italic}
+.fete-sous{margin:0 auto;max-width:44ch;color:var(--gris);font-size:17px}
+.scene-cert .cert{opacity:0;transform:scale(.5) rotate(-5deg);margin:22px auto}
+.scene-cert.pop .cert{animation:pouf .95s cubic-bezier(.2,1.2,.4,1) forwards}
+@keyframes pouf{0%{opacity:0;transform:scale(.5) rotate(-5deg)}55%{opacity:1;transform:scale(1.06) rotate(1.2deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+.fete-fin{opacity:0;transform:translateY(14px)}
+.fete-fin.vu{opacity:1;transform:none;transition:opacity .8s var(--ease) .5s,transform .8s var(--ease) .5s}
+.mot-fin{font:700 clamp(22px,5vw,34px)/1.35 "Dancing Script","Segoe Script",cursive;color:var(--vert);max-width:30ch;margin:6px auto 18px}
+.fete .actions{justify-content:center}
+.confettis{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60}
+@media (prefers-reduced-motion:reduce){.scene-cert .cert{opacity:1;transform:none;animation:none}.fete-fin{opacity:1;transform:none}}
+
+@font-face{font-family:"Dancing Script";src:url(fonts/DancingScript.ttf) format("truetype");font-weight:400 700;font-style:normal;font-display:swap}

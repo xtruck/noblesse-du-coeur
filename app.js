@@ -348,24 +348,108 @@ const renderHorsLigne = () => renderVide("Hors connexion", "·&nbsp;·&nbsp;·",
   '<button type="button" class="btn" onclick="location.reload()">Réessayer</button><a class="btn sec" href="index.html">Retour à l\'accueil</a>');
 
 /* ---------------- certificat ---------------- */
-/* Mode élève (?moi=1) : le serveur donne le statut, le nom et le matricule ; le PDF s'obtient par « Imprimer » → « Enregistrer en PDF ».
-   Mode équipe (?nom=…) : saisie libre du nom, du matricule et de la date (le certificat peut être préparé pour n'importe qui). */
-const CERT_BASE = '<div class="cert"><img src="img/certificat.jpg" alt="Certificat d\'Ambassadeur Junior"><div class="cn" id="vn"></div><div class="cnum" id="vm"></div><div class="cdt" id="vd"></div></div>';
+/* Le certificat est DESSINÉ dans un canvas (image 2600 × 1732) : le modèle, puis le nom, le matricule et la date écrits « à la main ».
+   Le même dessin sert à l'affichage, au téléchargement (image PNG, PDF) et à l'impression.
+   Mode élève (?moi=1) : le serveur donne le statut, le nom, le matricule et la date de réussite.
+   Mode équipe (?nom=…) : saisie libre du nom, du matricule et de la date. */
+const CERT_W = 2600, CERT_H = 1732, CERT_POLICE = '"Dancing Script", "Segoe Script", "Brush Script MT", cursive';
+const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const dateLongue = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || "")); return m ? `${Number(m[3])} ${MOIS[Number(m[2]) - 1]} ${m[1]}` : ""; };
+const sansAccents = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/* police manuscrite « Dancing Script » (licence libre OFL), servie par le site lui-même : le certificat s'écrit pareil, même sans réseau */
+function chargerPoliceManuscrite() {
+  return Promise.race([document.fonts.load('700 100px "Dancing Script"').catch(() => 0), new Promise(r => setTimeout(r, 4000))]);
+}
+const chargerImage = src => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
+
+async function dessinerCertificat(cv, d) {
+  const [modele] = await Promise.all([chargerImage("img/certificat.jpg"), chargerPoliceManuscrite()]);
+  cv.width = CERT_W; cv.height = CERT_H;
+  const g = cv.getContext("2d");
+  g.drawImage(modele, 0, 0, CERT_W, CERT_H);
+  g.fillStyle = "#18244f"; g.textBaseline = "alphabetic"; g.textAlign = "center";           // encre bleu nuit, comme un stylo plume
+  const ecrire = (txt, x, y, taille, largeurMax, angle) => {
+    let t = taille; g.font = `700 ${t}px ${CERT_POLICE}`;
+    while (g.measureText(txt).width > largeurMax && t > 40) { t -= 4; g.font = `700 ${t}px ${CERT_POLICE}`; }
+    g.save(); g.translate(x, y); g.rotate(angle); g.fillText(txt, 0, 0); g.restore();
+  };
+  if (d.nom) ecrire(d.nom, 1450, 694, 195, 1130, -0.012);                                    // le nom, en grand, sur la ligne
+  if (d.numero) ecrire("N° " + d.numero, 1180, 1358, 56, 520, -0.01);                        // matricule, entre le logo BMT et la signature
+  if (d.date) { g.textAlign = "left"; ecrire(d.date, 1850, 1342, 54, 430, -0.012); g.textAlign = "center"; }                                   // date, sur les pointillés de « Fait à Abidjan, le »
+  return cv;
+}
+
+const canvasEnBlob = (cv, type, q) => new Promise(ok => cv.toBlob(ok, type, q));
+function enregistrerBlob(blob, nom) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nom;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+/* PDF fabriqué à la main (largeur A4 paysage, mêmes proportions que l'image) : une seule page, l'image JPEG du certificat en pleine page */
+function pdfDepuisJpeg(jpeg, w, h) {
+  const enc = new TextEncoder(), parts = [], dec = []; let pos = 0;
+  const add = x => { const b = typeof x === "string" ? enc.encode(x) : x; parts.push(b); pos += b.length; };
+  const obj = (n, corps, flux) => { dec[n] = pos; add(`${n} 0 obj\n${corps}\n`); if (flux) { add("stream\n"); add(flux); add("\nendstream\n"); } add("endobj\n"); };
+  add("%PDF-1.4\n");
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+  obj(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 561] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>");
+  obj(4, `<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>`, jpeg);
+  const contenu = "q 842 0 0 561 0 0 cm /Im0 Do Q";
+  obj(5, `<< /Length ${contenu.length} >>`, contenu);
+  const xref = pos;
+  add("xref\n0 6\n0000000000 65535 f \n" + [1, 2, 3, 4, 5].map(n => String(dec[n]).padStart(10, "0") + " 00000 n \n").join(""));
+  add(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(parts, { type: "application/pdf" });
+}
+async function boutonsTelechargement(cv, nom, apres) {
+  const base = "Certificat-Noblesse-du-Coeur-" + (sansAccents(nom) || "ambassadeur");
+  $("#dl-png").onclick = async () => { enregistrerBlob(await canvasEnBlob(cv, "image/png"), base + ".png"); apres && apres(); };
+  $("#dl-pdf").onclick = async () => {
+    const jpeg = new Uint8Array(await (await canvasEnBlob(cv, "image/jpeg", .93)).arrayBuffer());
+    enregistrerBlob(pdfDepuisJpeg(jpeg, CERT_W, CERT_H), base + ".pdf"); apres && apres();
+  };
+  $("#dl-imp") && ($("#dl-imp").onclick = () => { apres && apres(); print(); });
+}
+const BOUTONS_CERT = `<div class="actions"><button class="btn or" id="dl-pdf" type="button">Télécharger en PDF</button><button class="btn" id="dl-png" type="button">Télécharger l'image (PNG)</button><button class="btn sec" id="dl-imp" type="button">Imprimer</button></div>`;
+
 function renderCertificat() {
   document.title = "Certificat d'Ambassadeur — La Noblesse du Cœur";
-  const p = new URLSearchParams(location.search), date = new Date().toLocaleDateString("fr-FR");
-  if (p.get("moi")) { certificatEleve(date); return; }
+  const p = new URLSearchParams(location.search);
+  if (p.get("moi")) { certificatEleve(); return; }
+  const aujourdhui = dateLongue(new Date().toISOString());
   app().innerHTML = `<div class="noprint">${header("equipe")}<main class="wrap" id="contenu" tabindex="-1"><h2 class="sec">Certificat d'Ambassadeur</h2>
     <div class="bloc" style="margin-top:12px"><div class="row"><div class="fld half"><label for="cn">Nom et prénoms</label><input id="cn" type="text" value="${esc(p.get("nom") || "")}"></div>
     <div class="fld half"><label for="cm">Matricule</label><input id="cm" type="text" value="${esc(p.get("num") || "")}"></div>
-    <div class="fld half"><label for="cd">Date</label><input id="cd" type="text" value="${esc(p.get("date") || date)}"></div></div>
-    <div class="actions"><button class="btn" onclick="print()">Imprimer le certificat</button><span class="help" style="margin:0">Choisissez l'orientation paysage et les marges « aucune ».</span></div></div></main></div>
-    ${CERT_BASE}<div class="noprint">${FOOT}</div>`;
-  const up = () => { $("#vn").textContent = $("#cn").value; $("#vm").textContent = $("#cm").value ? "N° " + $("#cm").value : ""; $("#vd").textContent = $("#cd").value; };
-  $("#cn").oninput = $("#cm").oninput = $("#cd").oninput = up; up();
+    <div class="fld half"><label for="cd">Date</label><input id="cd" type="text" value="${esc(p.get("date") || aujourdhui)}"></div></div>
+    ${BOUTONS_CERT}<p class="help">Impression : orientation paysage, marges « aucune ».</p></div></main></div>
+    <div class="cert"><canvas id="cv" role="img" aria-label="Aperçu du certificat"></canvas></div><div class="noprint">${FOOT}</div>`;
+  const cv = $("#cv"); let en = 0;
+  const maj = () => { const n = ++en; setTimeout(() => { if (n === en) dessinerCertificat(cv, { nom: $("#cn").value.trim(), numero: $("#cm").value.trim(), date: $("#cd").value.trim() }); }, 180); };
+  $("#cn").oninput = $("#cm").oninput = $("#cd").oninput = maj; maj();
+  boutonsTelechargement(cv, p.get("nom") || "ambassadeur");
   UIok();
 }
-async function certificatEleve(date) {
+
+/* confettis aux couleurs de la Côte d'Ivoire : orange, blanc, vert, et de l'or */
+function confettis(duree = 4200) {
+  if (sansMouvement()) return;
+  const cv = document.createElement("canvas"); cv.className = "confettis"; cv.setAttribute("aria-hidden", "true"); document.body.appendChild(cv);
+  const g = cv.getContext("2d"), dpr = Math.min(devicePixelRatio || 1, 2), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr;
+  const couleurs = ["#f77f00", "#ffffff", "#009e60", "#d4a838", "#ffb347", "#2fbf71"];
+  const bouts = Array.from({ length: 170 }, (_, k) => { const cote = k % 2 ? 1 : -1;
+    return { x: (cote > 0 ? W * .1 : W * .9) + Math.random() * 40, y: H * .78, vx: -cote * (4 + Math.random() * 10) * dpr, vy: -(14 + Math.random() * 16) * dpr,
+      t: (6 + Math.random() * 8) * dpr, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: couleurs[k % couleurs.length], f: Math.random() * 3 }; });
+  const debut = performance.now();
+  (function image(now) {
+    const dt = now - debut; g.clearRect(0, 0, W, H);
+    bouts.forEach(b => { b.vy += .42 * dpr; b.vx *= .992; b.x += b.vx; b.y += b.vy; b.r += b.vr;
+      g.save(); g.translate(b.x, b.y); g.rotate(b.r); g.globalAlpha = Math.max(0, Math.min(1, (duree - dt) / 900)); g.fillStyle = b.c; g.fillRect(-b.t / 2, -b.t / 4, b.t, b.t / 2 * (.5 + Math.abs(Math.sin(b.r * 2 + b.f)))); g.restore(); });
+    dt < duree ? requestAnimationFrame(image) : cv.remove();
+  })(debut);
+}
+
+async function certificatEleve() {
   const pr = profil();
   if (!pr || pr.type !== "eleve") { location.replace(pr ? "espace.html" : "commencer.html"); return; }
   const message = (titre, texte, extra = "") => { app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Mon certificat</span><h1>${titre}</h1></div></div></section>
@@ -375,15 +459,18 @@ async function certificatEleve(date) {
   if (!r.ok) { message("Un souci", esc(r.error || "Impossible de vérifier ton certificat pour le moment. Réessaie dans un instant.")); return; }
   if (r.certificat === "aucun") { message("Pas encore d'examen", "Tu n'as pas encore passé l'examen final. Le certificat se débloque après l'examen.", '<div class="actions"><a class="btn or" href="examen.html">Aller à l\'examen final</a></div>'); return; }
   if (r.certificat === "non") { message("Pas de certificat cette fois", `Ta meilleure note est de ${r.pct} %. Pour obtenir le certificat, il faut au moins 70 %. Tu peux repasser l'examen autant de fois que tu veux : ta meilleure note est gardée.`, '<div class="actions"><a class="btn or" href="examen.html">Repasser l\'examen</a></div>'); return; }
-  const nom = [r.prenom, r.nom].filter(Boolean).join(" ").trim();
-  app().innerHTML = `<div class="noprint">${header()}<main class="wrap" id="contenu" tabindex="-1"><h2 class="sec">Ton certificat d'Ambassadeur</h2>
-    <div class="bloc" style="margin-top:12px"><p class="lead-b">Félicitations, ${esc(r.prenom || r.nom)} ! Ton certificat porte ton nom et ton matricule${r.numero ? " (" + esc(r.numero) + ")" : ""}.</p>
-    <div class="actions"><button class="btn or" id="telecharger" type="button">Télécharger mon certificat (PDF)</button><a class="btn sec" href="espace.html">Retour à mon espace</a></div>
-    <p class="help">Dans la fenêtre qui s'ouvre, choisis « Enregistrer au format PDF », en orientation paysage, avec les marges « aucune ».</p></div></main></div>
-    ${CERT_BASE}<div class="noprint">${FOOT}</div>`;
-  $("#vn").textContent = nom; $("#vm").textContent = r.numero ? "N° " + r.numero : ""; $("#vd").textContent = date;
-  $("#telecharger").onclick = () => { etapeFaite("certificat"); print(); };
+  const nom = [r.prenom, r.nom].filter(Boolean).join(" ").trim(), numero = r.numero || pr.numero || "", date = dateLongue(r.date) || dateLongue(new Date().toISOString());
+  app().innerHTML = `<div class="noprint">${header()}</div>
+    <main class="wrap fete" id="contenu" tabindex="-1"><h1 class="fete-titre">Félicitations, <em>${esc(r.prenom || r.nom)}</em> !</h1><p class="fete-sous">Tu es désormais Ambassadeur de la paix, de la fraternité et de la dignité.</p>
+      <div class="scene-cert"><div class="cert"><canvas id="cv" role="img" aria-label="Ton certificat d'Ambassadeur, au nom de ${esc(nom)}"></canvas></div></div>
+      <div class="fete-fin noprint"><p class="mot-fin">Chaque geste de respect fait grandir la paix autour de toi. Garde ce cœur noble : le monde a besoin de lui.</p>
+        ${BOUTONS_CERT}<div class="actions"><a class="btn sec" href="espace.html">Retour à mon espace</a></div></div></main><div class="noprint">${FOOT}</div>`;
   UIok();
+  const cv = $("#cv"), scene = document.querySelector(".scene-cert"), fin = document.querySelector(".fete-fin");
+  await dessinerCertificat(cv, { nom, numero, date });
+  boutonsTelechargement(cv, nom, () => etapeFaite("certificat"));
+  setTimeout(() => { confettis(); }, sansMouvement() ? 0 : 500);
+  setTimeout(() => { scene.classList.add("pop"); fin.classList.add("vu"); }, sansMouvement() ? 0 : 1100);   // pouf : le diplôme apparaît, puis le mot de la fin
 }
 
 /* ---------------- tableau de bord ---------------- */

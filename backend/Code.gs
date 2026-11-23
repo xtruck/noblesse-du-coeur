@@ -221,14 +221,15 @@ function examenNoter_(d) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sh = ss.getSheetByName(ONGLET_EXAMEN) || ss.insertSheet(ONGLET_EXAMEN);
-    var cle = cleEleve_(id), entete = ['horodatage', 'cle', 'numero', 'etablissement', 'nom', 'prenom', 'classe', 'note', 'total', 'axe1', 'axe2', 'pct', 'tentatives', 'derniere_pct', 'reponses'];
+    var cle = cleEleve_(id), entete = ['horodatage', 'cle', 'numero', 'etablissement', 'nom', 'prenom', 'classe', 'note', 'total', 'axe1', 'axe2', 'pct', 'tentatives', 'derniere_pct', 'reponses', 'date_reussite'];
     if (sh.getLastRow() < 1) {
       sh.getRange(1, 1, 1, entete.length).setValues([entete]).setFontWeight('bold').setBackground('#14472f').setFontColor('#ffffff');
       sh.setFrozenRows(1);
     }
+    else if (sh.getLastColumn() < entete.length) sh.getRange(1, 1, 1, entete.length).setValues([entete]);   // ancienne feuille : on ajoute les colonnes qui manquent
     var r = examenCorriger_(tirees, rep);
     var compact = tirees.map(function (q) { return q.id + ':' + (rep[q.id] === undefined ? '-' : rep[q.id]); }).join(' ');
-    var ligne = [new Date(), cle, id.numero || '', id.etablissement, id.nom, id.prenom, id.classe, r.note, r.total, r.axe1, r.axe2, r.pct, 1, r.pct, compact];
+    var ligne = [new Date(), cle, id.numero || '', id.etablissement, id.nom, id.prenom, id.classe, r.note, r.total, r.axe1, r.axe2, r.pct, 1, r.pct, compact, r.pct >= EXAMEN_SEUIL_PCT ? new Date() : ''];
     var deja = sh.getLastRow() > 1 ? sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(cle).matchEntireCell(true).matchCase(true).findNext() : null;
     var tentative = 1, meilleurPct = r.pct;
     if (deja) {                                           // nouvelle tentative : on compte, et on ne remplace que si la note est meilleure
@@ -239,6 +240,7 @@ function examenNoter_(d) {
       var nouvelle = meilleure ? ligne.slice() : cur.slice();
       nouvelle[0] = new Date(); nouvelle[i('tentatives')] = tentative; nouvelle[i('derniere_pct')] = r.pct;
       if (!nouvelle[i('numero')] && id.numero) nouvelle[i('numero')] = id.numero;
+      nouvelle[i('date_reussite')] = cur[i('date_reussite')] || (r.pct >= EXAMEN_SEUIL_PCT ? new Date() : '');
       sh.getRange(rang, 1, 1, entete.length).setValues([nouvelle]);
     } else {
       var plage = sh.getRange(sh.getLastRow() + 1, 1, 1, entete.length);
@@ -263,6 +265,11 @@ function examenNoter_(d) {
 
 /* Certificat d'Ambassadeur, le même pour tous : il s'ouvre automatiquement dès que la meilleure note atteint le seuil ('ouvert'), sinon 'non'.
    Les 200 meilleurs résultats restent classés dans le tableau de bord (cérémonie), sans différence de certificat. */
+function jourIso_(v) {
+  var d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return '';
+  return typeof Utilities !== 'undefined' ? Utilities.formatDate(d, 'Africa/Abidjan', 'yyyy-MM-dd') : d.toISOString().slice(0, 10);
+}
 function certificatStatut_(sh, pct) { return pct >= EXAMEN_SEUIL_PCT ? 'ouvert' : 'non'; }
 
 /* Ce que l'élève peut demander : son statut, et (si le certificat est ouvert) son nom et son matricule, tels que le serveur les connaît. */
@@ -279,6 +286,8 @@ function certificatDonnees_(d) {
   if (statut === 'ouvert') {
     var numero = String(ligne[entete.indexOf('numero')] || '');
     if (!numero) { var insc = ss.getSheetByName(ONGLET.eleve_inscr); numero = insc ? numeroExistant_(insc, cle) || '' : ''; }
+    var quand = ligne[entete.indexOf('date_reussite')] || ligne[0];
+    rep.date = quand ? jourIso_(quand) : '';
     rep.nom = String(ligne[entete.indexOf('nom')] || ''); rep.prenom = String(ligne[entete.indexOf('prenom')] || ''); rep.numero = numero;
   }
   return json_(rep);

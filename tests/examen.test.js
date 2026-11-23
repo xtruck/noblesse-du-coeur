@@ -239,3 +239,15 @@ test("une personne = une ligne : sa meilleure note compte, même si la feuille g
   const A = o.examens.liste.find(x => x.nom === 'A');
   assert.strictEqual(A.pct, 90); assert.strictEqual(A.tentatives, 3); assert.strictEqual(A.reussi, true); assert.strictEqual(A.rang, 2); assert.strictEqual(A.retenu, true);
 });
+
+test("le certificat porte la date de la première réussite, qui ne bouge plus ensuite", () => {
+  const { post } = monde();
+  post({ action: 'examen_noter', ...eleve, ids, reponses: { 1: 99 } });                       // raté : pas de date de réussite
+  assert.strictEqual(post({ action: 'certificat', ...eleve }).date, undefined);
+  post({ action: 'examen_noter', ...eleve, ids, reponses: toutJuste });                       // réussi : la date est fixée
+  const premiere = post({ action: 'certificat', ...eleve });
+  assert.match(premiere.date, /^\d{4}-\d{2}-\d{2}$/);
+  assert.strictEqual(premiere.date, new Date().toISOString().slice(0, 10));
+  post({ action: 'examen_noter', ...eleve, ids, reponses: {} });                              // un essai raté plus tard ne change rien
+  assert.strictEqual(post({ action: 'certificat', ...eleve }).date, premiere.date);
+});
