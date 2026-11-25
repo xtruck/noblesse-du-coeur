@@ -13,6 +13,7 @@ function renderExamen() {
   if (!acces(pr).examen) { location.replace("espace.html"); return; }
   const axe = Number(new URLSearchParams(location.search).get("axe")), info = AXES_EXAMEN[axe];
   if (!info) { choixExamen(pr); return; }
+  if (axeVerrouille("axe" + axe)) { ecranAxe2Verrouille(); return; }
   document.title = `Examen final · ${info.nom} — La Noblesse du Cœur`;
   app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Examen final · ${info.nom}</span><h1>${titreHtml(info.court)}</h1><p>${esc(pr.prenom || pr.nom)} · ${esc(pr.etab)} · ${esc(pr.classe)}</p></div></div></section>
   <div class="progression" id="prog" hidden><div class="wrap"><b>Question</b><span class="jauge" role="progressbar" aria-label="Avancement"><i></i></span><small id="pc"></small></div></div>
@@ -135,9 +136,9 @@ function renderExamen() {
 /* Choix de l'examen : un examen par axe, avec de grands titres pour les distinguer */
 function choixExamen(pr) {
   document.title = "Examens finaux — La Noblesse du Cœur";
-  const carte = n => { const info = AXES_EXAMEN[n], f = examenFait(n), ok = examenReussi(n), prog = axeProgres("axe" + n), ferme = !ok && !prog.pret;
+  const carte = n => { const info = AXES_EXAMEN[n], f = examenFait(n), ok = examenReussi(n), prog = axeProgres("axe" + n), ferme = !ok && (!prog.pret || axeVerrouille("axe" + n));
     return `<a class="carte-profil carte-examen${ferme ? " ferme" : ""}" href="examen.html?axe=${n}" style="--k:${n - 1}"><span class="cont-eyebrow">Examen final · ${info.nom}</span><h3>${titreHtml(info.court)}</h3>
-      <p>${ok ? "Réussi : " + virgule(f.pct) + " %. Tu peux le repasser pour améliorer ta note." : ferme ? "À débloquer : valide d'abord tous les modules de l'axe (" + prog.restants.length + " restant" + (prog.restants.length > 1 ? "s" : "") + ", " + SEUIL_QUIZ + " % minimum)." : f ? "Pas encore réussi : tente à nouveau (" + SEUIL_EXAMEN + " % minimum)." : NB_QUESTIONS_EXAMEN + " questions, " + SEUIL_EXAMEN + " % pour réussir, repassable autant que tu veux."}</p>
+      <p>${ok ? "Réussi : " + virgule(f.pct) + " %. Tu peux le repasser pour améliorer ta note." : ferme && axeVerrouille("axe" + n) ? "À débloquer : réussis d'abord l'examen final de l'Axe 1 (" + SEUIL_EXAMEN + " % minimum)." : ferme ? "À débloquer : valide d'abord tous les modules de l'axe (" + prog.restants.length + " restant" + (prog.restants.length > 1 ? "s" : "") + ", " + SEUIL_QUIZ + " % minimum)." : f ? "Pas encore réussi : tente à nouveau (" + SEUIL_EXAMEN + " % minimum)." : NB_QUESTIONS_EXAMEN + " questions, " + SEUIL_EXAMEN + " % pour réussir, repassable autant que tu veux."}</p>
       <span class="aller">${ok ? "Repasser" : ferme ? "Voir ce qui reste" : "Passer l'examen"}</span></a>`; };
   app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Examens finaux</span><h1>Tes <em>examens</em> finaux</h1>
     <p>Un examen à la fin de chaque axe. Quand tu as réussi les deux, ton certificat d'Ambassadeur est prêt.</p></div></div></section>

@@ -18,6 +18,7 @@ function pageAxe(id) {
   const [nom, titre] = axe.titre.split(" · "), faits = mods.filter(m => moduleValide(B.best, m)), suivant = mods.find(m => !moduleValide(B.best, m)) || null;
   const EPa = axeProgres(id), pret = EPa.pret, reste = EPa.restants.length, ok = examenReussi(num), dejaExamen = !!examenFait(num), peutExamen = !!(profil() && acces(profil()).examen);
   document.title = axe.titre + " — La Noblesse du Cœur";
+  if (axeVerrouille(id)) { ecranAxe2Verrouille(); return; }
   const etape = (m, n) => {
     const e = etatModule(B.best, m), s = B.best[m.id], img = (IMG_MODULE[m.id] || {}).c, verrou = n > 0 && !moduleValide(B.best, mods[n - 1]);
     const corps = `<span class="num-axe">${n + 1}</span>${img ? `<img class="mini-affiche" src="img/${img}.webp" width="60" height="90" loading="lazy" alt="">` : ""}
@@ -57,6 +58,7 @@ function parcoursModule(m) {
   document.title = m.titre + " — Cours et auto-évaluation — La Noblesse du Cœur";
   const mods = tousModules().filter(x => x.axeId === m.axeId), rang = mods.findIndex(x => x.id === m.id) + 1, vu = store.get("ndc_parcours", {});
   const img = IMG_MODULE[m.id] || {}, cours = coursModule(m), court = m.titre.replace(/^Module \d+ · /, "");
+  if (axeVerrouille(m.axeId)) { ecranAxe2Verrouille(); return; }
   const best = store.get("ndc_quiz", {})[m.id], prec = mods[rang - 2];
   if (prec && !moduleValide(store.get("ndc_quiz", {}) || {}, prec)) {            // un module ne s'ouvre que lorsque le précédent est validé
     app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">${esc(m.axe)}</span><h1>Module <em>verrouillé</em></h1></div></div></section>

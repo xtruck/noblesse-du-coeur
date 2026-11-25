@@ -709,6 +709,17 @@ const virgule = n => String(n).replace(".", ",");
 const examenFait = axe => { const e = store.get(CLE_EXAMEN_FAIT, {}) || {}, p = profil(), x = e["axe" + axe]; return x && x.n > 0 && p && x.cle === cleLocale(p) ? x : null; };
 const examenReussi = axe => !!(examenFait(axe) && examenFait(axe).reussi);
 const examensReussis = () => examenReussi(1) && examenReussi(2);
+/* L'Axe 2 reste verrouillé tant que l'examen final de l'Axe 1 n'est pas réussi (les participants, qui ne passent pas d'examen, ne sont pas concernés).
+   Règle côté site : elle guide l'élève sur son appareil. */
+const axeVerrouille = id => id === "axe2" && !!(profil() && acces(profil()).examen) && !examenReussi(1);
+function ecranAxe2Verrouille() {
+  document.title = "Axe 2 verrouillé — La Noblesse du Cœur";
+  const prete = axeProgres("axe1").pret;
+  app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Axe 2 · L'art de l'impact</span><h1>Axe 2 <em>verrouillé</em></h1></div></div></section>
+    <main class="wrap" id="contenu" tabindex="-1"><div class="bloc no-rv entre"><p class="lead-b">L'Axe 2 s'ouvre quand tu as réussi l'examen final de l'Axe 1 (${SEUIL_EXAMEN} % minimum). ${prete ? "Tous les modules de l'Axe 1 sont validés : l'examen t'attend." : "Termine d'abord les modules de l'Axe 1."}</p>
+    <div class="actions"><a class="btn or" href="${prete ? "examen.html?axe=1" : "parcours.html?a=axe1"}">${prete ? "Passer l'examen de l'Axe 1" : "Continuer l'Axe 1"}</a><a class="btn sec" href="espace.html">Retour à mon espace</a></div></div></main>` + FOOT;
+  UIok();
+}
 const SEUIL_QUIZ = 75;                       // % pour VALIDER un module et passer au suivant (4 bonnes réponses sur 5)
 const SEUIL_EXCELLENCE = 90;                 // % à partir duquel la note est « excellente » (5 sur 5)
 const NB_QUESTIONS_QUIZ = 5;                 // questions posées à chaque essai, tirées dans la réserve du module (8 à 12 questions)
@@ -817,7 +828,7 @@ function renderEspace() {
   const idu = p.numero ? `<span class="idu">Matricule : ${esc(p.numero)}</span>` : "";
   const ident = eleve ? `${esc(p.etab)} · ${esc(p.classe)}` : esc([p.ville, p.structure].filter(Boolean).join(" · ") || "Participant(e)");
   const axe = (id, nom, titre) => { const mods = B.mods.filter(m => m.axeId === id), faits = mods.filter(m => moduleValide(B.best, m)).length;
-    return { t: `${nom} · ${titre}`, d: `${mods.length} modules : pour chacun, le cours puis son auto-évaluation (${SEUIL_QUIZ} % pour passer au suivant). ${faits} module${faits > 1 ? "s" : ""} validé${faits > 1 ? "s" : ""} sur ${mods.length}.`, fait: mods.length > 0 && faits === mods.length, href: "parcours.html?a=" + id, axe: true }; };
+    return { t: `${nom} · ${titre}`, d: axeVerrouille(id) ? `Verrouillé : réussis d'abord l'examen final de l'Axe 1 (${SEUIL_EXAMEN} % minimum).` : `${mods.length} modules : pour chacun, le cours puis son auto-évaluation (${SEUIL_QUIZ} % pour passer au suivant). ${faits} module${faits > 1 ? "s" : ""} validé${faits > 1 ? "s" : ""} sur ${mods.length}.`, fait: mods.length > 0 && faits === mods.length, href: "parcours.html?a=" + id, axe: true }; };
   const EP1 = axeProgres("axe1"), EP2 = axeProgres("axe2"), tous = examensReussis();
   const examenEtape = (n, EP) => { const f = examenFait(n), ok = examenReussi(n);
     return { t: `Examen final · Axe ${n}`, d: `${NB_QUESTIONS_EXAMEN} questions sur l'Axe ${n}, ${SEUIL_EXAMEN} % pour réussir. Tu peux le repasser autant de fois que tu veux : la meilleure note est gardée. ${ok ? "Réussi (" + virgule(f.pct) + " %)." : f ? "Pas encore réussi : tente à nouveau." : EP.pret ? "Il est ouvert : à toi de jouer." : "Il s'ouvre quand les modules de l'Axe " + n + " sont validés (" + EP.restants.length + " restant" + (EP.restants.length > 1 ? "s" : "") + ")."}`, fait: ok, href: "examen.html?axe=" + n }; };
