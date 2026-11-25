@@ -1,5 +1,5 @@
 /* Hors-ligne : pages et images en cache ; PDF mis en cache à la première ouverture, puis rafraîchis en arrière-plan. */
-const V = "bmt-v22";
+const V = "bmt-v23";
 // images en WebP : bandeaux (1280 px) et versions mobiles (768 px) ; le certificat haute définition se met en cache à sa première ouverture
 const IMGS = ["basilique", "bassam", "hkb", "man", "plateau", "savane"].flatMap(n => ["img/" + n + "-1280.webp", "img/" + n + "-768.webp", "img/" + n + "-thumb.webp"]);
 const CORE = ["index.html", "equipe.html", "commencer.html", "espace.html", "examen.html", "examen.js", "bibliotheque.html", "form.html", "liens.html", "certificat.html", "dashboard.html", "parcours.html", "ong.html", "formations.html", "offline.html", "style.css", "ui.js", "app.js", "forms.js", "parcours.js", "quiz-data.js", "config.js", "manifest.json",
@@ -15,5 +15,5 @@ self.addEventListener("fetch", e => {
     e.respondWith(caches.match(key).then(r => { const f = fetch(e.request).then(garder).catch(() => r); return r || f; }));
     return;
   }
-  e.respondWith(fetch(e.request).then(garder).catch(() => caches.match(key).then(r => r || (e.request.mode === "navigate" ? caches.match("offline.html") : undefined))));   // réseau d'abord, cache en secours, puis page « hors connexion »
+  e.respondWith(fetch(e.request, { cache: "no-cache" }).then(garder).catch(() => caches.match(key).then(r => r || (e.request.mode === "navigate" ? caches.match("offline.html") : undefined))));   // réseau d'abord (toujours revalidé : une mise à jour du site apparaît tout de suite), cache en secours, puis page « hors connexion »
 });
