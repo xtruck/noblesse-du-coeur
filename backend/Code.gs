@@ -22,10 +22,10 @@ var ONGLET = { engagement: 'Responsables', eval: 'Évaluation élève', ens: 'Gr
    (jamais sur GitHub : le site public n'a donc aucun moyen de connaître les réponses).
    L'examen ne s'ouvre que si la propriété du script EXAMEN_OUVERT vaut « oui ». */
 var ONGLET_EXAMEN = 'Examen final';   // une ligne par élève : sa meilleure note et son nombre de tentatives
-var EXAMEN_SEUIL_PCT = 70;          // réussite et certificat d'Ambassadeur : à partir de 70/100 (un seul certificat pour tous, sans distinction)
+var EXAMEN_SEUIL_PCT = 70;          // réussite d'un examen : à partir de 70/100 ; le certificat d'Ambassadeur (le même pour tous) s'obtient en réussissant LES DEUX examens
 var EXAMEN_NB_CERTIFICATS = 200;    // les 200 meilleurs, classement général des DEUX lycées réunis
-var EXAMEN_PAR_AXE = { 1: 4, 2: 3 };   // un seul examen de 7 questions : 4 tirées au hasard dans l'Axe 1, 3 dans l'Axe 2
-var EXAMEN_AFFICHER_NOTE = true;    // l'élève voit tout de suite sa note et le corrigé ; le certificat s'ouvre tout seul dès que la note atteint le seuil
+var EXAMEN_NB_QUESTIONS = 7;        // chaque axe a son examen final : 7 questions tirées au hasard dans la réserve de l'axe
+var EXAMEN_AFFICHER_NOTE = true;    // l'élève voit tout de suite sa note et le corrigé ; le certificat s'ouvre tout seul quand les deux examens sont réussis
 
 /* Limites contre les envois abusifs (le site est public) */
 var MAX_OCTETS = 200000, MAX_TEXTE = 2000, MAX_LIGNES = 200, MAX_COLONNES = 60;
@@ -77,13 +77,15 @@ function doPost(e) {
     if (!nom) return json_({ ok: false, error: 'Formulaire inconnu' });
     delete d.form;
     d = propre_(d);
+    delete d.cle; delete d.horodatage; delete d.rang;                                          // champs réservés au serveur : jamais repris du navigateur
+    if (d.numero !== undefined && !/^[A-Z]{2,3}-\d{4}-\d{4}$/.test(String(d.numero))) delete d.numero;   // un matricule mal formé est ignoré (il pourrait cacher une formule)
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sh = ss.getSheetByName(nom) || ss.insertSheet(nom);
     var res = { ok: true };
     if (nom === ONGLET.ong) {
       var annee = new Date().getFullYear();
       var n = Math.max(0, sh.getLastRow() - 1) + 1;
-      d = Object.assign({ numero: 'LE-' + annee + '-' + ('0000' + n).slice(-4) }, d);
+      d = Object.assign({}, d, { numero: 'LE-' + annee + '-' + ('0000' + n).slice(-4) });
       res.numero = d.numero;
     }
     if (nom === ONGLET.inscription) {
@@ -91,7 +93,7 @@ function doPost(e) {
       d.cle = ['participant', d.nom, d.prenom, d.ville].map(normCle_).join('|');
       var exist = numeroExistant_(sh, d.cle);
       if (exist !== null) { res.numero = exist; return json_(res); }
-      d = Object.assign({ numero: matriculeSuivant_() }, d);
+      d = Object.assign({}, d, { numero: matriculeSuivant_() });
       res.numero = d.numero;
     }
     if (nom === ONGLET.eleve_inscr) {
@@ -100,7 +102,7 @@ function doPost(e) {
       d.cle = cleEleve_(d);
       var existE = numeroExistant_(sh, d.cle);
       if (existE !== null) { res.numero = existE; return json_(res); }   // déjà inscrit : on redonne son matricule, sans doublon
-      d = Object.assign({ numero: matriculeSuivant_() }, d);
+      d = Object.assign({}, d, { numero: matriculeSuivant_() });
       res.numero = d.numero;
     }
     var lignes = [d];
@@ -172,16 +174,19 @@ function examenOuvert_() { return PropertiesService.getScriptProperties().getPro
 function melanger_(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
 /* Questions envoyées au navigateur : jamais la bonne réponse. Chaque choix garde son numéro d'origine (id) ; l'ordre affiché est mélangé. */
-/* Un seul examen final : 7 questions tirées au hasard (4 de l'Axe 1, sensibilisation comprise, et 3 de l'Axe 2). Chaque tentative donne d'autres questions. */
+/* Chaque axe a son examen final : 7 questions tirées au hasard dans la réserve de l'axe (l'Axe 1 comprend la sensibilisation). Chaque tentative donne d'autres questions. */
 function banqueAxe_(axe) { return examenBanque_().filter(function (q) { return (q.axe === 2 ? 2 : 1) === axe; }); }
-function nbParAxe_(axe) { return Math.min(EXAMEN_PAR_AXE[axe], banqueAxe_(axe).length); }
+function nbQuestions_(axe) { return Math.min(EXAMEN_NB_QUESTIONS, banqueAxe_(axe).length); }
+function axeDemande_(d) { var a = Number(d && d.axe); return a === 1 || a === 2 ? a : 0; }
 
 function examenQuestions_(d) {
+  var axe = axeDemande_(d);
   if (!examenBanque_().length) return json_({ ok: false, error: 'L\'examen n\'est pas encore installé.' });
+  if (!axe) return json_({ ok: false, error: 'Choisissez l\'examen de l\'Axe 1 ou de l\'Axe 2.' });
   if (!examenOuvert_()) return json_({ ok: false, error: 'L\'examen n\'est pas encore ouvert.' });
-  var tirees = melanger_(banqueAxe_(1)).slice(0, nbParAxe_(1)).concat(melanger_(banqueAxe_(2)).slice(0, nbParAxe_(2)));
-  return json_({ ok: true, total: tirees.length, questions: tirees.map(function (q) {
-    return { id: q.id, axe: q.axe === 2 ? 2 : 1, q: q.q, options: melanger_(q.options.map(function (t, i) { return { id: i, t: t }; })) };
+  var tirees = melanger_(banqueAxe_(axe)).slice(0, nbQuestions_(axe));
+  return json_({ ok: true, axe: axe, total: tirees.length, questions: tirees.map(function (q) {
+    return { id: q.id, axe: axe, q: q.q, options: melanger_(q.options.map(function (t, i) { return { id: i, t: t }; })) };
   }) });
 }
 
@@ -198,19 +203,37 @@ function examenCorriger_(banque, reponses) {
            pct: banque.length ? Math.round(note / banque.length * 1000) / 10 : 0 };
 }
 
-/* L'élève peut repasser l'examen autant de fois qu'il veut : chaque tentative est comptée, la MEILLEURE note est gardée. */
+/* Meilleure note, date de réussite et tentatives de l'élève à chacun des deux examens (une ligne par élève ET par axe, clé « …|axe1 » / « …|axe2 »). */
+function examensDe_(sh, cleBase) {
+  var res = { p: { 1: null, 2: null }, d: { 1: '', 2: '' }, n: { 1: 0, 2: 0 } };
+  if (!sh || sh.getLastRow() < 2) return res;
+  var entete = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0], col = function (k) { return entete.indexOf(k); };
+  [1, 2].forEach(function (a) {
+    var f = sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(cleBase + '|axe' + a).matchEntireCell(true).matchCase(true).findNext();
+    if (!f) return;
+    var l = sh.getRange(f.getRow(), 1, 1, entete.length).getValues()[0];
+    res.p[a] = Number(l[col('pct')]) || 0; res.d[a] = l[col('date_reussite')] || ''; res.n[a] = Number(l[col('tentatives')]) || 1;
+  });
+  return res;
+}
+/* Le certificat s'ouvre quand LES DEUX examens sont réussis. 'reste' = les axes dont l'examen n'est pas encore réussi. */
+function certificatStatut_(m) {
+  var reste = [1, 2].filter(function (a) { return !(m.p[a] !== null && m.p[a] >= EXAMEN_SEUIL_PCT); });
+  return { statut: reste.length ? 'non' : 'ouvert', reste: reste };
+}
+
+/* L'élève peut repasser chaque examen autant de fois qu'il veut : chaque tentative est comptée, la MEILLEURE note est gardée. */
 function examenNoter_(d) {
-  var B = examenBanque_();
+  var axe = axeDemande_(d), B = axe ? banqueAxe_(axe) : [];
   if (!B.length || !examenOuvert_()) return json_({ ok: false, error: 'L\'examen n\'est pas ouvert.' });
-  var id = propre_({ etablissement: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe, numero: d.numero });
+  var id = propre_({ etablissement: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe });   // le matricule du navigateur est ignoré : on le relit dans les inscriptions
   var manque = ['etablissement', 'nom', 'prenom', 'classe'].filter(function (k) { return !id[k] || !String(id[k]).trim(); });
   if (manque.length) return json_({ ok: false, error: 'Renseignez votre établissement, nom, prénoms et classe.' });
   if (!d.reponses || typeof d.reponses !== 'object' || Array.isArray(d.reponses)) return json_({ ok: false, error: 'Copie illisible' });
-  /* les questions de la copie : exactement celles du tirage (nombre par axe contrôlé), sans doublon, toutes dans la banque */
+  /* les questions de la copie : exactement celles d'un tirage de CET axe (nombre contrôlé), sans doublon, toutes dans la réserve de l'axe */
   var ids = Array.isArray(d.ids) ? d.ids.map(Number) : [], vus = {}, tirees = [];
   ids.forEach(function (n) { var q = B.filter(function (x) { return x.id === n; })[0]; if (q && !vus[n]) { vus[n] = 1; tirees.push(q); } });
-  var n1 = tirees.filter(function (q) { return q.axe !== 2; }).length, n2 = tirees.length - n1;
-  if (tirees.length !== ids.length || n1 !== nbParAxe_(1) || n2 !== nbParAxe_(2)) return json_({ ok: false, error: 'Copie illisible' });
+  if (tirees.length !== ids.length || tirees.length !== nbQuestions_(axe)) return json_({ ok: false, error: 'Copie illisible' });
   var rep = {};
   tirees.forEach(function (q) {
     var v = d.reponses[q.id];
@@ -221,7 +244,9 @@ function examenNoter_(d) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sh = ss.getSheetByName(ONGLET_EXAMEN) || ss.insertSheet(ONGLET_EXAMEN);
-    var cle = cleEleve_(id), entete = ['horodatage', 'cle', 'numero', 'etablissement', 'nom', 'prenom', 'classe', 'note', 'total', 'axe1', 'axe2', 'pct', 'tentatives', 'derniere_pct', 'reponses', 'date_reussite'];
+    var base = cleEleve_(id), cle = base + '|axe' + axe, insc = ss.getSheetByName(ONGLET.eleve_inscr);
+    id.numero = insc ? numeroExistant_(insc, base) || '' : '';
+    var entete = ['horodatage', 'cle', 'numero', 'etablissement', 'nom', 'prenom', 'classe', 'note', 'total', 'axe1', 'axe2', 'pct', 'tentatives', 'derniere_pct', 'reponses', 'date_reussite', 'axe'];
     if (sh.getLastRow() < 1) {
       sh.getRange(1, 1, 1, entete.length).setValues([entete]).setFontWeight('bold').setBackground('#14472f').setFontColor('#ffffff');
       sh.setFrozenRows(1);
@@ -229,7 +254,7 @@ function examenNoter_(d) {
     else if (sh.getLastColumn() < entete.length) sh.getRange(1, 1, 1, entete.length).setValues([entete]);   // ancienne feuille : on ajoute les colonnes qui manquent
     var r = examenCorriger_(tirees, rep);
     var compact = tirees.map(function (q) { return q.id + ':' + (rep[q.id] === undefined ? '-' : rep[q.id]); }).join(' ');
-    var ligne = [new Date(), cle, id.numero || '', id.etablissement, id.nom, id.prenom, id.classe, r.note, r.total, r.axe1, r.axe2, r.pct, 1, r.pct, compact, r.pct >= EXAMEN_SEUIL_PCT ? new Date() : ''];
+    var ligne = [new Date(), cle, id.numero || '', id.etablissement, id.nom, id.prenom, id.classe, r.note, r.total, r.axe1, r.axe2, r.pct, 1, r.pct, compact, r.pct >= EXAMEN_SEUIL_PCT ? new Date() : '', axe];
     var deja = sh.getLastRow() > 1 ? sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(cle).matchEntireCell(true).matchCase(true).findNext() : null;
     var tentative = 1, meilleurPct = r.pct;
     if (deja) {                                           // nouvelle tentative : on compte, et on ne remplace que si la note est meilleure
@@ -238,19 +263,20 @@ function examenNoter_(d) {
       var meilleure = r.pct > (Number(cur[i('pct')]) || 0);
       meilleurPct = meilleure ? r.pct : (Number(cur[i('pct')]) || 0);
       var nouvelle = meilleure ? ligne.slice() : cur.slice();
-      nouvelle[0] = new Date(); nouvelle[i('tentatives')] = tentative; nouvelle[i('derniere_pct')] = r.pct;
+      nouvelle[0] = new Date(); nouvelle[i('tentatives')] = tentative; nouvelle[i('derniere_pct')] = r.pct; nouvelle[i('axe')] = axe;
       if (!nouvelle[i('numero')] && id.numero) nouvelle[i('numero')] = id.numero;
-      nouvelle[i('date_reussite')] = cur[i('date_reussite')] || (r.pct >= EXAMEN_SEUIL_PCT ? new Date() : '');
+      nouvelle[i('date_reussite')] = cur[i('date_reussite')] || (r.pct >= EXAMEN_SEUIL_PCT ? new Date() : '');   // date de la PREMIÈRE réussite, qui ne bouge plus
       sh.getRange(rang, 1, 1, entete.length).setValues([nouvelle]);
     } else {
       var plage = sh.getRange(sh.getLastRow() + 1, 1, 1, entete.length);
       ligne.forEach(function (v, j) { if (typeof v === 'string' && /^[=+\-@\t\r]/.test(v)) plage.getCell(1, j + 1).setNumberFormat('@'); });
       plage.setValues([ligne]);
     }
-    var rep2 = { ok: true, enregistre: true, tentative: tentative };
+    var rep2 = { ok: true, enregistre: true, axe: axe, tentative: tentative };
     if (EXAMEN_AFFICHER_NOTE) {
       rep2.note = r.note; rep2.total = r.total; rep2.pct = r.pct; rep2.reussi = r.pct >= EXAMEN_SEUIL_PCT; rep2.meilleurPct = meilleurPct;
-      rep2.certificat = certificatStatut_(sh, meilleurPct);
+      var cert = certificatStatut_(examensDe_(sh, base));
+      rep2.certificat = cert.statut; rep2.reste = cert.reste;
       rep2.corriges = tirees.map(function (q) {                     // le corrigé n'est donné qu'APRÈS l'envoi de la copie
         var ch = rep[q.id];
         return { q: q.q, axe: q.axe === 2 ? 2 : 1, choix: ch === undefined ? null : q.options[ch], bonne: q.options[q.bonne], juste: ch === q.bonne };
@@ -263,32 +289,30 @@ function examenNoter_(d) {
   } finally { lock.releaseLock(); }
 }
 
-/* Certificat d'Ambassadeur, le même pour tous : il s'ouvre automatiquement dès que la meilleure note atteint le seuil ('ouvert'), sinon 'non'.
-   Les 200 meilleurs résultats restent classés dans le tableau de bord (cérémonie), sans différence de certificat. */
 function jourIso_(v) {
   var d = v instanceof Date ? v : new Date(v);
   if (isNaN(d.getTime())) return '';
   return typeof Utilities !== 'undefined' ? Utilities.formatDate(d, 'Africa/Abidjan', 'yyyy-MM-dd') : d.toISOString().slice(0, 10);
 }
-function certificatStatut_(sh, pct) { return pct >= EXAMEN_SEUIL_PCT ? 'ouvert' : 'non'; }
 
-/* Ce que l'élève peut demander : son statut, et (si le certificat est ouvert) son nom et son matricule, tels que le serveur les connaît. */
+/* Ce que l'élève peut demander : son statut, et (si le certificat est ouvert) son nom, son matricule et la date, tels que le serveur les connaît.
+   Certificat d'Ambassadeur, le même pour tous : il s'ouvre automatiquement quand les DEUX examens (Axe 1 et Axe 2) sont réussis.
+   Sa date est celle de la réussite du second examen. Les 200 meilleurs restent classés dans le tableau de bord (cérémonie), sans différence de certificat. */
 function certificatDonnees_(d) {
   var id = propre_({ etablissement: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe });
   var manque = ['etablissement', 'nom', 'prenom', 'classe'].filter(function (k) { return !id[k] || !String(id[k]).trim(); });
   if (manque.length) return json_({ ok: false, error: 'Renseignez votre établissement, nom, prénoms et classe.' });
-  var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(ONGLET_EXAMEN), cle = cleEleve_(id);
-  if (!sh || sh.getLastRow() < 2) return json_({ ok: true, certificat: 'aucun' });
-  var trouve = sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(cle).matchEntireCell(true).matchCase(true).findNext();
-  if (!trouve) return json_({ ok: true, certificat: 'aucun' });
-  var entete = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0], ligne = sh.getRange(trouve.getRow(), 1, 1, entete.length).getValues()[0];
-  var pct = Number(ligne[entete.indexOf('pct')]) || 0, statut = certificatStatut_(sh, pct), rep = { ok: true, certificat: statut, pct: pct };
-  if (statut === 'ouvert') {
-    var numero = String(ligne[entete.indexOf('numero')] || '');
-    if (!numero) { var insc = ss.getSheetByName(ONGLET.eleve_inscr); numero = insc ? numeroExistant_(insc, cle) || '' : ''; }
-    var quand = ligne[entete.indexOf('date_reussite')] || ligne[0];
-    rep.date = quand ? jourIso_(quand) : '';
-    rep.nom = String(ligne[entete.indexOf('nom')] || ''); rep.prenom = String(ligne[entete.indexOf('prenom')] || ''); rep.numero = numero;
+  var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(ONGLET_EXAMEN), base = cleEleve_(id);
+  var m = examensDe_(sh, base);
+  if (m.p[1] === null && m.p[2] === null) return json_({ ok: true, certificat: 'aucun' });
+  var cert = certificatStatut_(m), rep = { ok: true, certificat: cert.statut, reste: cert.reste, pct1: m.p[1], pct2: m.p[2] };
+  if (cert.statut === 'ouvert') {
+    var d1 = m.d[1] ? new Date(m.d[1]).getTime() : 0, d2 = m.d[2] ? new Date(m.d[2]).getTime() : 0;
+    rep.date = jourIso_(new Date(Math.max(d1, d2)));
+    var insc = ss.getSheetByName(ONGLET.eleve_inscr), numero = insc ? numeroExistant_(insc, base) || '' : '';   // le matricule des inscriptions fait foi
+    var f = sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(base + '|axe1').matchEntireCell(true).matchCase(true).findNext() || sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(base + '|axe2').matchEntireCell(true).matchCase(true).findNext();
+    var entete = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0], ligne = f ? sh.getRange(f.getRow(), 1, 1, entete.length).getValues()[0] : [];
+    rep.nom = String(ligne[entete.indexOf('nom')] || id.nom); rep.prenom = String(ligne[entete.indexOf('prenom')] || id.prenom); rep.numero = numero || String(ligne[entete.indexOf('numero')] || '');
   }
   return json_(rep);
 }
@@ -391,18 +415,23 @@ function calculer(D, opts) {
   out.ong = { total: O.length, handicap: compte(O, 'handicap'), besoins: compte(O, 'besoins'), sexe: compte(O, 'sexe'), commune: compte(O, 'commune') };
   out.autres = { responsables: (D.engagement || []).length, rapports: (D.rapport || []).length, pv: (D.pv || []).length,
                  retenus: (D.liste || []).length, reflexions: (D.reflexion || []).length, inscriptions: I.length, formations: compte(I, 'formation') };
-  /* Examen final noté (un seul, 10 questions) : une ligne par élève = sa meilleure note ; réussite à partir du seuil (80 %) ; les 200 meilleurs sont retenus pour le certificat (deux lycées réunis) */
+  /* Examens finaux notés (un par axe) : une ligne par élève ET par axe = sa meilleure note à cet axe. Une personne = une ligne ici :
+     elle réussit (et reçoit le certificat) quand les DEUX examens sont à 70 % ou plus ; les 200 meilleurs (moyenne des deux) sont retenus pour la cérémonie. */
   var XP = {};
   (D.examens || []).forEach(function (r) {
+    var a = num(r.axe); if (a !== 1 && a !== 2) return;                                   // anciennes lignes de l'examen unique : ignorées
     var k = [r.etablissement, r.nom, r.prenom, r.classe].map(norm).join('|'), note = num(r.note) || 0, total = num(r.total) || 0, p = num(r.pct);
     if (p === null) p = total ? Math.round(note / total * 1000) / 10 : 0;
-    var x = XP[k];
-    if (!x || p > x.pct) XP[k] = { nom: String(r.nom || '').trim(), prenom: String(r.prenom || '').trim(), etab: String(r.etablissement || '').trim(), classe: String(r.classe || '').trim(),
-      numero: String(r.numero || (x && x.numero) || ''), note: note, total: total, axe1: num(r.axe1) || 0, axe2: num(r.axe2) || 0, pct: p, tentatives: num(r.tentatives) || 1 };
-    else if (r.numero && !x.numero) x.numero = String(r.numero);
+    var x = XP[k] = XP[k] || { nom: String(r.nom || '').trim(), prenom: String(r.prenom || '').trim(), etab: String(r.etablissement || '').trim(), classe: String(r.classe || '').trim(),
+      numero: '', pct1: null, pct2: null, note1: 0, tot1: 0, note2: 0, tot2: 0, t1: 0, t2: 0 };
+    if (r.numero && !x.numero) x.numero = String(r.numero);
+    if (x['pct' + a] === null || p > x['pct' + a]) { x['pct' + a] = p; x['note' + a] = note; x['tot' + a] = total; x['t' + a] = num(r.tentatives) || 1; }
   });
   var X = Object.keys(XP).map(function (k) {
-    var x = XP[k]; x.complet = true; x.reussi = x.pct >= seuil;
+    var x = XP[k]; x.a1 = x.pct1 !== null; x.a2 = x.pct2 !== null; x.complet = x.a1 && x.a2;
+    x.note = x.note1 + x.note2; x.total = x.tot1 + x.tot2; x.axe1 = x.note1; x.axe2 = x.note2; x.tentatives = x.t1 + x.t2;
+    x.pct = x.total ? Math.round(x.note / x.total * 1000) / 10 : 0;
+    x.reussi = x.complet && x.pct1 >= seuil && x.pct2 >= seuil;
     return x;
   }).sort(function (a, b) { return b.pct - a.pct || (a.etab + a.nom).localeCompare(b.etab + b.nom); });
   X.forEach(function (x, i) { x.rang = i + 1; x.retenu = x.reussi && x.rang <= nbCert; });   // classement général (deux lycées réunis) ; égalités à trancher par la coordination

@@ -5,7 +5,7 @@ const BASE = location.href.replace(/[^/]*([?#].*)?$/, "");
 const externe = u => /^https?:/.test(u);                                   // adresse d'un autre site : s'ouvre dans un nouvel onglet ; sinon, page de cette application
 const cibleLien = u => externe(u) ? ' target="_blank" rel="noopener"' : "";
 const notConfigured = () => !API_URL;
-const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } } };
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 
 /* La page est construite dans #app : le préchargeur, les barres fines et les scripts restent en dehors et ne sont jamais effacés. */
@@ -94,11 +94,11 @@ const ETAPES = [
     ["eleve_inscr", "", "Inscription de l'élève (lien général)", "L'élève choisit son lycée dans la liste, puis donne son nom, ses prénoms et sa classe."],
     ["eleve_inscr", "lycee=mamie", "Lycée Mamie Faitai de Bingerville", "Lien à donner aux élèves de ce lycée : l'établissement est déjà choisi."],
     ["eleve_inscr", "lycee=gnalega", "Lycée de Garçons Gnaléga Mémé Jérémie de Bingerville", "Lien à donner aux élèves de ce lycée : l'établissement est déjà choisi."]] },
-  { id: "quiz", court: "Parcours", t: "Parcours des *élèves*", s: "Pour les élèves : les cours et auto-évaluations de l'Axe 1 et de l'Axe 2, puis un seul examen final.", items: [
-    ["@espace.html", "", "Mon espace (parcours de l'élève)", "Inscription, évaluation initiale, Axe 1, Axe 2, examen final, évaluation finale."],
-    ["@examen.html", "", "Examen final (Axe 1 et Axe 2)", "7 questions tirées au hasard (4 + 3), corrigées par le serveur, avec le corrigé et la note tout de suite : l'élève peut le repasser, la meilleure note est gardée."]] },
+  { id: "quiz", court: "Parcours", t: "Parcours des *élèves*", s: "Pour les élèves : les cours et auto-évaluations de l'Axe 1 et de l'Axe 2, puis un examen final à la fin de chaque axe.", items: [
+    ["@espace.html", "", "Mon espace (parcours de l'élève)", "Inscription, évaluation initiale, Axe 1 puis son examen, Axe 2 puis son examen, évaluation finale, certificat."],
+    ["@examen.html", "", "Examens finaux (un par axe)", "7 questions par axe, corrigées par le serveur, avec la note et le corrigé tout de suite : repassables, meilleure note gardée. Le certificat vient après les deux examens."]] },
   { id: "pilotage", court: "Résultats", t: "*Résultats*", s: "Suivre le programme en direct.", items: [
-    ["@dashboard.html", "", "Tableau de bord", "Inscrits, progrès, examens, distinctions et bénéficiaires.", true]] },
+    ["@dashboard.html", "", "Tableau de bord", "Inscrits, progrès, examens, certificats et bénéficiaires.", true]] },
 ];
 const href = (k, ph) => k.startsWith("@") ? k.slice(1) : `form.html?f=${k}${ph ? "&" + (ph.includes("=") ? ph : "phase=" + ph) : ""}`;   // ph = "avant" / "apres", ou un paramètre complet (ex. « lycee=mamie »)
 const vignette = k => (FORMS[k] || {}).img || (k.includes("certificat") ? "basilique" : "plateau");
@@ -325,7 +325,7 @@ async function submit(key, form) {
   }
   if (!res.ok) { window.UI ? UI.charge(btn, false, "Envoyer la fiche") : (btn.disabled = false); err.innerHTML = `<div class="warn" role="alert">${esc(res.error || "Erreur")}</div>`; return; }
   const f = FORMS[key], again = location.search;
-  if (f.profil) { store.set("ndc_profil", profilDepuis(f.profil, data, res)); bienvenue(form, f.profil, data, res); return; }
+  if (f.profil) { const nouveau = profilDepuis(f.profil, data, res), ancien = profil(); if (!ancien || cleLocale(ancien) !== cleLocale(nouveau)) effacerProgression(); store.set("ndc_profil", nouveau); bienvenue(form, f.profil, data, res); return; }
   if (key === "eval" && new URLSearchParams(location.search).get("moi")) { etapeFaite("eval_" + (new URLSearchParams(location.search).get("phase") === "apres" ? "apres" : "avant")); finEvaluation(form, res); return; }
   form.innerHTML = `<div class="bloc no-rv" style="padding-bottom:14px"><div class="ok centre"><svg class="coche" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="25"/><path d="M14 27l8 8 16-17"/></svg><h3 tabindex="-1" id="merci">${res.demo ? "Fiche complète (mode démonstration, non enregistrée)" : "Fiche enregistrée"}</h3>
     ${res.numero ? `<p style="font-size:18px">Numéro : <b>${esc(res.numero)}</b></p><p>Notez ce numéro : il identifie le dossier.</p>` : ""}
@@ -346,6 +346,33 @@ const render404 = () => renderVide("Page introuvable", "404", "Cette page n'exis
   '<a class="btn" href="index.html">Retour à l\'accueil</a><a class="btn sec" href="espace.html">Mon espace</a>');
 const renderHorsLigne = () => renderVide("Hors connexion", "·&nbsp;·&nbsp;·", "Vous êtes <em>hors connexion</em>", "Cette page n'a pas encore été ouverte sur cet appareil. Les pages déjà visitées restent disponibles ; reconnectez-vous pour afficher celle-ci.",
   '<button type="button" class="btn" onclick="location.reload()">Réessayer</button><a class="btn sec" href="index.html">Retour à l\'accueil</a>');
+
+/* ---------------- son : fanfare et carillon fabriqués avec Web Audio (aucun fichier à charger) ---------------- */
+let ctxSon = null;
+const sonActif = () => store.get("ndc_son", true) !== false;
+/* à appeler dans un clic : les navigateurs n'autorisent le son qu'après un geste de l'utilisateur */
+function deverrouillerSon() { try { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; ctxSon = ctxSon || new AC(); if (ctxSon.state === "suspended") ctxSon.resume(); } catch (e) {} }
+function coupeSon() { try { ctxSon && ctxSon.suspend(); } catch (e) {} }
+function noteSon(freq, debut, duree, vol, type) {
+  const c = ctxSon, t = c.currentTime + debut, o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
+  o.type = type; o.frequency.value = freq; f.type = "lowpass"; f.frequency.value = 3400;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .03); g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
+  o.connect(f); f.connect(g); g.connect(c.destination); o.start(t); o.stop(t + duree + .05);
+}
+/* « Taa-ta-ta-TAAA ! » : do-mi-sol-do en cuivres, puis un accord tenu (2,5 secondes environ) */
+function fanfare() {
+  if (!sonActif() || !ctxSon) return;
+  try {
+    [[261.63, 0, .2], [329.63, .18, .2], [392, .36, .2], [523.25, .54, .55]].forEach(([f, t, d]) => { noteSon(f, t, d, .16, "sawtooth"); noteSon(f / 2, t, d, .1, "triangle"); });
+    [523.25, 659.25, 783.99, 1046.5].forEach(f => noteSon(f, 1.15, 1.35, .1, "triangle"));
+    [1318.5, 1567.98, 2093].forEach((f, k) => noteSon(f, 1.2 + k * .12, .7, .05, "sine"));
+  } catch (e) {}
+}
+/* petit carillon : le diplôme apparaît */
+function carillon() {
+  if (!sonActif() || !ctxSon) return;
+  try { [1046.5, 1318.5, 1567.98, 2093, 2637].forEach((f, k) => noteSon(f, k * .11, .9, .07, "sine")); } catch (e) {}
+}
 
 /* ---------------- certificat ---------------- */
 /* Le certificat est DESSINÉ dans un canvas (image 2600 × 1732) : le modèle, puis le nom, le matricule et la date écrits « à la main ».
@@ -452,13 +479,17 @@ function confettis(duree = 4200) {
 async function certificatEleve() {
   const pr = profil();
   if (!pr || pr.type !== "eleve") { location.replace(pr ? "espace.html" : "commencer.html"); return; }
+  document.title = "Mon certificat — La Noblesse du Cœur";
   const message = (titre, texte, extra = "") => { app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Mon certificat</span><h1>${titre}</h1></div></div></section>
     <main class="wrap" id="contenu" tabindex="-1"><div class="bloc no-rv entre"><p class="lead-b">${texte}</p>${extra}<div class="actions"><a class="btn sec" href="espace.html">Retour à mon espace</a></div></div></main>` + FOOT; UIok(); };
   message("Je vérifie…", "Un instant : je consulte ton résultat.");
   const r = await appelApi({ action: "certificat", etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe });
   if (!r.ok) { message("Un souci", esc(r.error || "Impossible de vérifier ton certificat pour le moment. Réessaie dans un instant.")); return; }
-  if (r.certificat === "aucun") { message("Pas encore d'examen", "Tu n'as pas encore passé l'examen final. Le certificat se débloque après l'examen.", '<div class="actions"><a class="btn or" href="examen.html">Aller à l\'examen final</a></div>'); return; }
-  if (r.certificat === "non") { message("Pas de certificat cette fois", `Ta meilleure note est de ${r.pct} %. Pour obtenir le certificat, il faut au moins 70 %. Tu peux repasser l'examen autant de fois que tu veux : ta meilleure note est gardée.`, '<div class="actions"><a class="btn or" href="examen.html">Repasser l\'examen</a></div>'); return; }
+  if (r.certificat === "aucun") { message("Pas encore d'examen", "Tu n'as pas encore passé d'examen final. Le certificat s'obtient en réussissant les deux examens, un par axe (" + SEUIL_EXAMEN + " % minimum chacun).", '<div class="actions"><a class="btn or" href="examen.html">Aller aux examens finaux</a></div>'); return; }
+  if (r.certificat === "non") {
+    const manque = (r.reste || []).map(n => `l'examen de l'Axe ${n} (${r["pct" + n] == null ? "pas encore passé" : "ta meilleure note : " + virgule(r["pct" + n]) + " %"})`).join(" et ");
+    message("Pas encore de certificat", `Il te reste à réussir ${manque}. Il faut au moins ${SEUIL_EXAMEN} % à chaque examen, et tu peux les repasser autant de fois que tu veux : la meilleure note est gardée.`, `<div class="actions"><a class="btn or" href="examen.html?axe=${(r.reste || [1])[0]}">Aller à l'examen de l'Axe ${(r.reste || [1])[0]}</a></div>`); return;
+  }
   const nom = [r.prenom, r.nom].filter(Boolean).join(" ").trim(), numero = r.numero || pr.numero || "", date = dateLongue(r.date) || dateLongue(new Date().toISOString());
   app().innerHTML = `<div class="noprint">${header()}</div>
     <main class="wrap fete" id="contenu" tabindex="-1"><h1 class="fete-titre">Félicitations, <em>${esc(r.prenom || r.nom)}</em> !</h1><p class="fete-sous">Tu es désormais Ambassadeur de la paix, de la fraternité et de la dignité.</p>
@@ -470,7 +501,7 @@ async function certificatEleve() {
   await dessinerCertificat(cv, { nom, numero, date });
   boutonsTelechargement(cv, nom, () => etapeFaite("certificat"));
   setTimeout(() => { confettis(); }, sansMouvement() ? 0 : 500);
-  setTimeout(() => { scene.classList.add("pop"); fin.classList.add("vu"); }, sansMouvement() ? 0 : 1100);   // pouf : le diplôme apparaît, puis le mot de la fin
+  setTimeout(() => { scene.classList.add("pop"); fin.classList.add("vu"); carillon(); }, sansMouvement() ? 0 : 1100);   // pouf : le diplôme apparaît, puis le mot de la fin
 }
 
 /* ---------------- tableau de bord ---------------- */
@@ -505,7 +536,7 @@ async function load(code, btn) {
   const fr = x => String(x).replace(".", ","), P = d.programme, O = d.ong, A = d.autres || {}, I = d.inscritsEleves || { total: 0, parGroupe: [] }, pct = x => x == null ? "—" : fr(x) + " %", n2 = x => x == null ? "—" : fr(x);
   const kpi = (v, l, s = "") => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
   const bars = rows => rows.map(r => `<tr><td>${esc(r[0])}</td><td style="width:60px;text-align:right"><b>${r[1]}</b></td><td style="width:45%"><div class="bar"><i style="--w:${r[2] / 100}"></i></div></td><td style="width:60px">${fr(r[2])} %</td></tr>`).join("");
-  const cert = e => `<a href="certificat.html?nom=${encodeURIComponent(e.nom)}" target="_blank">Certificat</a>`;
+  const cert = e => `<a href="certificat.html?nom=${encodeURIComponent(e.nom)}&num=${encodeURIComponent(e.numero || "")}" target="_blank" rel="noopener">Certificat</a>`;
   const dbl = (P.doublons || []).length ? `<div class="warn"><b>Noms à vérifier : doublons probables.</b> Un même élève semble écrit de deux façons, ce qui fausse les totaux.<br>${P.doublons.map(x => `${esc(x.a)} / ${esc(x.b)} (${esc(x.etab)}, ${esc(x.classe)})`).join("<br>")}</div>` : "";
   $("#dash").innerHTML = `<div class="actions" style="margin:18px 0 0"><span class="puce-maj">Mis à jour : ${esc(d.maj)}</span><button class="btn sec" id="rf">Actualiser</button></div>
   <h2 class="sec">Participation</h2><div class="kpis">${kpi(A.responsables ?? 0, "Responsables engagés")}${kpi(P.etablissements, "Établissements")}${kpi(P.inscrits, "Élèves suivis")}${kpi(P.evalAvant, "Évaluations AVANT")}${kpi(P.evalApres, "Évaluations APRÈS")}${kpi(P.suivis, "Fiches de suivi")}${kpi(A.rapports ?? 0, "Rapports reçus")}${kpi(A.pv ?? 0, "PV de sélection")}</div>
@@ -517,9 +548,9 @@ async function load(code, btn) {
     ${kpi(n2(P.suiviDebut) + " → " + n2(P.suiviFin), "Compétences /5", "début → fin")}
     ${kpi(pct(P.pctSansIncident), "Élèves sans incident", P.sansIncident + " / " + P.suivis)}
     ${kpi(P.incAvant + " → " + P.incApres, "Incidents (registres)", P.incAvant ? pct(P.reductionInc) + " de baisse" : "")}
-    ${kpi((d.examens || {}).reussis ?? 0, "Certificats d'Ambassadeur", "automatiques dès " + ((d.examens || {}).seuilPct ?? 70) + " % à l'examen")}
+    ${kpi((d.examens || {}).reussis ?? 0, "Certificats d'Ambassadeur", "automatiques quand les deux examens sont réussis (" + ((d.examens || {}).seuilPct ?? 70) + " % chacun)")}
     ${kpi(A.retenus ?? 0, "Élèves retenus (listes officielles)")}</div>
-  ${dbl}<h2 class="sec">Les 200 meilleurs résultats à l'examen final</h2><p class="help" style="margin:0 0 10px">Tous ceux qui réussissent l'examen (${(d.examens || {}).seuilPct ?? 70} % et plus) reçoivent le même certificat, automatiquement. Ce classement garde les ${(d.examens || {}).nbCertificats ?? 200} meilleurs résultats pour la cérémonie. Les égalités à la dernière place sont à départager par la coordination.</p><div class="panneau"><table class="tb"><tr><th>Rang</th><th>Élève</th><th>Établissement</th><th>Classe</th><th>Note</th><th></th></tr>${((d.examens || {}).liste || []).filter(x => x.retenu).map(x => `<tr><td>${x.rang}</td><td><b>${esc((x.nom + " " + x.prenom).trim())}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td class="yes">${fr(x.pct)} %</td><td>${cert({ nom: (x.nom + " " + x.prenom).trim() })}</td></tr>`).join("") || '<tr><td colspan="6">Aucun pour le moment.</td></tr>'}</table></div>
+  ${dbl}<h2 class="sec">Les 200 meilleurs résultats aux examens finaux</h2><p class="help" style="margin:0 0 10px">Tous ceux qui réussissent les deux examens finaux (${(d.examens || {}).seuilPct ?? 70} % et plus à chacun) reçoivent le même certificat, automatiquement. Ce classement (moyenne des deux examens) garde les ${(d.examens || {}).nbCertificats ?? 200} meilleurs résultats pour la cérémonie. Les égalités à la dernière place sont à départager par la coordination.</p><div class="panneau"><table class="tb"><tr><th>Rang</th><th>Élève</th><th>Établissement</th><th>Classe</th><th>Note</th><th></th></tr>${((d.examens || {}).liste || []).filter(x => x.retenu).map(x => `<tr><td>${x.rang}</td><td><b>${esc((x.nom + " " + x.prenom).trim())}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td class="yes">${fr(x.pct)} %</td><td>${cert({ nom: (x.nom + " " + x.prenom).trim(), numero: x.numero })}</td></tr>`).join("") || '<tr><td colspan="6">Aucun pour le moment.</td></tr>'}</table></div>
   <h2 class="sec">Par établissement</h2><div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Élèves</th><th>Moy. avant</th><th>Moy. après</th></tr>${P.parEtab.map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td></tr>`).join("")}</table></div>
   <h2 class="sec">Tous les élèves</h2><div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Avant</th><th>Après</th><th>Ens. après</th><th>Suivi fin</th><th>Incident</th><th>Critères</th></tr>${P.eleves.map(e => `<tr><td>${esc(e.nom)}</td><td>${esc(e.etab)}</td><td>${esc(e.classe)}</td><td>${n2(e.av)}</td><td>${n2(e.ap)}</td><td>${n2(e.ensAp)}</td><td>${n2(e.fin)}</td><td>${e.incident == null ? "—" : e.incident ? "Oui" : "Non"}</td><td class="${e.crit >= 3 ? "yes" : ""}">${e.crit}/4</td></tr>`).join("")}</table></div>
   <h2 class="sec">Campagne en milieu scolaire — inscriptions des élèves</h2><div class="kpis">${kpi(I.total, "Élèves inscrits")}</div>
@@ -537,9 +568,9 @@ async function load(code, btn) {
 function sectionsResultats(d, fr, kpi, pct, n2) {
   const X = d.examens || { copies: 0, liste: [], parEtab: [] }, Q = d.quiz || { tentatives: 0, personnes: 0, parModule: [] }, L = d.personnes || [];
   const oui = b => b === true ? '<span class="yes">Réussi</span>' : b === false ? "Non" : "—";
-  return `<h2 class="sec">Examen final noté</h2><div class="kpis">${kpi(X.copies, "Copies reçues")}${kpi(pct(X.moyennePct), "Note moyenne")}${kpi(X.reussis ?? 0, "Réussites", "seuil : " + (X.seuilPct ?? 70) + " %")}${kpi(pct(X.pctReussite), "Taux de réussite")}</div>
+  return `<h2 class="sec">Examens finaux notés (un par axe)</h2><div class="kpis">${kpi(X.copies, "Copies reçues")}${kpi(pct(X.moyennePct), "Note moyenne")}${kpi(X.reussis ?? 0, "Réussites", "seuil : " + (X.seuilPct ?? 70) + " %")}${kpi(pct(X.pctReussite), "Taux de réussite")}</div>
   <div class="panneau"><table class="tb"><tr><th>Établissement</th><th>Copies</th><th>Moyenne</th><th>Réussites</th><th>Certificats (max ${X.nbCertificats ?? 200})</th></tr>${(X.parEtab || []).map(e => `<tr><td>${esc(e.etab)}</td><td>${e.n}</td><td>${pct(e.moyennePct)}</td><td>${e.reussis}</td><td><b>${e.retenus}</b></td></tr>`).join("") || '<tr><td colspan="5">Aucune copie pour le moment.</td></tr>'}</table></div>
-  <div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Meilleure note</th><th>Axe 1</th><th>Axe 2</th><th>Tentatives</th><th></th></tr>${(X.liste || []).map(x => `<tr><td><b>${esc(x.nom)} ${esc(x.prenom)}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td>${x.note} / ${x.total}</td><td>${x.axe1}</td><td>${x.axe2}</td><td>${x.tentatives}</td><td>${oui(x.reussi)}</td></tr>`).join("") || '<tr><td colspan="8">Aucune copie.</td></tr>'}</table></div>
+  <div class="panneau"><table class="tb"><tr><th>Élève</th><th>Établissement</th><th>Classe</th><th>Moyenne</th><th>Examen Axe 1</th><th>Examen Axe 2</th><th>Tentatives</th><th></th></tr>${(X.liste || []).map(x => `<tr><td><b>${esc(x.nom)} ${esc(x.prenom)}</b></td><td>${esc(x.etab)}</td><td>${esc(x.classe)}</td><td>${fr(x.pct)} %</td><td>${x.a1 ? fr(x.pct1) + " %" : "—"}</td><td>${x.a2 ? fr(x.pct2) + " %" : "—"}</td><td>${x.tentatives}</td><td>${x.complet ? oui(x.reussi) : "Incomplet"}</td></tr>`).join("") || '<tr><td colspan="8">Aucune copie.</td></tr>'}</table></div>
   <h2 class="sec">Auto-évaluations des modules</h2><div class="kpis">${kpi(Q.tentatives, "Essais envoyés")}${kpi(Q.personnes, "Personnes concernées")}${kpi((d.autres || {}).reflexions ?? 0, "Réflexions écrites", "sensibilisation")}</div>
   <div class="panneau"><table class="tb"><tr><th>Module</th><th>Essais</th><th>Score moyen</th></tr>${(Q.parModule || []).map(m => `<tr><td>${esc(m.titre)}</td><td>${m.n}</td><td>${pct(m.moyennePct)}</td></tr>`).join("") || '<tr><td colspan="3">Aucun essai pour le moment.</td></tr>'}</table></div>
   <h2 class="sec">Toutes les personnes (${L.length})</h2><p class="help" style="margin:0 0 10px">Cherche un nom, filtre par profil ou par état, et clique sur une ligne pour voir le détail de la personne (modules de quiz, contact). « Télécharger » donne un fichier Excel avec tout le monde.</p>
@@ -596,7 +627,7 @@ const ICONE = {
 };
 const CARTES_PROFIL = `<div class="profils">
   <a class="carte-profil" href="commencer.html?p=eleve" style="--k:0"><span class="pic">${ICONE.eleve}</span><h3>Je suis <em>élève</em></h3>
-    <p>Tu es dans un lycée partenaire. Tu choisis ton école dans la liste, puis tu suis le parcours : cours, auto-évaluations corrigées et examen final.</p><span class="aller">M'inscrire comme élève</span></a>
+    <p>Tu es dans un lycée partenaire. Tu choisis ton école dans la liste, puis tu suis le parcours : cours, auto-évaluations corrigées et un examen final par axe.</p><span class="aller">M'inscrire comme élève</span></a>
   <a class="carte-profil" href="commencer.html?p=participant" style="--k:1"><span class="pic">${ICONE.participant}</span><h3>Je suis <em>participant(e)</em></h3>
     <p>ONG, association, enseignant(e), organisation ou particulier : tu suis le même programme La Noblesse du Cœur que les élèves, où que tu sois en Côte d'Ivoire.</p><span class="aller">M'inscrire comme participant</span></a></div>`;
 
@@ -614,7 +645,7 @@ function renderAccueil() {
   app().innerHTML = header() + BANDEAU("basilique", `
     <h1>La Noblesse du Cœur</h1>
     <p class="sous-titre" style="--k:1">L'art de la politesse</p>
-    <p class="lead" style="--k:2">${p ? `Content de te revoir, ${esc(nom)}. Retrouve ton parcours, tes auto-évaluations, ton examen et tes résultats.` : "<strong>Programme éducatif de sensibilisation citoyenne</strong> : cours, auto-évaluations corrigées et examens finaux, en ligne. Inscris-toi, suis l'Axe 1 et l'Axe 2 module par module, puis passe tes examens. Tout se fait sur téléphone, à ton rythme."}</p>
+    <p class="lead" style="--k:2">${p ? `Content de te revoir, ${esc(nom)}. Retrouve ton parcours, tes auto-évaluations, tes examens et tes résultats.` : "<strong>Programme éducatif de sensibilisation citoyenne</strong> : cours, auto-évaluations corrigées et examens finaux, en ligne. Inscris-toi, suis l'Axe 1 et l'Axe 2 module par module, puis passe tes examens. Tout se fait sur téléphone, à ton rythme."}</p>
     <div class="cta" style="--k:2">${p ? '<a class="btn or" href="espace.html">Entrer dans mon espace</a>' : '<a class="btn or" href="commencer.html">Commencer</a>'}<a class="btn clair" href="#parcours">Comment ça marche</a></div>`) + `
   <main id="contenu" tabindex="-1">${DEMO() ? `<div class="wrap">${DEMO()}</div>` : ""}
     <section class="bande" id="commencer"><div class="wrap"><div class="etape-tete"><div><h2>${p ? "Ton <em>espace</em>" : "Qui <em>es-tu</em> ?"}</h2><p>${p ? "Tu es déjà inscrit(e) sur cet appareil." : "Choisis ton profil : le site te montrera uniquement ce qui te concerne."}</p></div></div>
@@ -623,13 +654,13 @@ function renderAccueil() {
       <ol class="pas">
         <li style="--k:0"><i>1</i><h3>Je m'inscris</h3><p>J'indique mon école, ma classe et mon nom : une minute suffit.</p></li>
         <li style="--k:1"><i>2</i><h3>J'étudie, module par module</h3><p>Pour chaque module : le cours, puis son auto-évaluation avec la correction expliquée.</p></li>
-        <li style="--k:2"><i>3</i><h3>Je passe l'examen final</h3><p>Un seul examen sur les deux axes, corrigé automatiquement. Je peux le repasser : ma meilleure note est gardée.</p></li></ol>
+        <li style="--k:2"><i>3</i><h3>Je passe les examens finaux</h3><p>Un examen à la fin de chaque axe, corrigé automatiquement. Je peux les repasser, et je reçois mon certificat après les deux.</p></li></ol>
       <div class="actions" style="justify-content:center">${INSTALLER}</div></div></section>
     <section class="bande" id="asynchrone"><div class="wrap"><div class="etape-tete"><div><h2>Une formation <em>asynchrone</em></h2><p>Tu avances à ton rythme, où que tu sois.</p></div></div>
       <div class="pas">
         <div class="pas-i" style="--k:0"><h3>Pas d'horaire imposé</h3><p>Les supports sont disponibles dès l'inscription. Tu les lis et tu t'exerces quand tu veux, sur téléphone.</p></div>
         <div class="pas-i" style="--k:1"><h3>Corrigés immédiats</h3><p>Chaque auto-évaluation explique la bonne réponse, même quand tu te trompes. Tu peux recommencer autant que tu veux.</p></div>
-        <div class="pas-i" style="--k:2"><h3>Examen à date annoncée</h3><p>L'examen final s'ouvre quand tu as fait toutes les auto-évaluations des deux axes. Il est corrigé automatiquement, et tu peux le repasser.</p></div></div></div></section>
+        <div class="pas-i" style="--k:2"><h3>Un examen à la fin de chaque axe</h3><p>L'examen d'un axe s'ouvre quand tu as validé tous ses modules (75 % à chacun). Il est corrigé automatiquement, et tu peux le repasser. Le certificat arrive après les deux examens.</p></div></div></div></section>
     <section class="bande sombre" id="plateformes"><div class="wrap"><div class="etape-tete"><div><h2>Les autres <em>formations</em></h2><p>BMT Green Academy propose bien d'autres formations sur sa plateforme éducative.</p></div></div>
       ${BOUTON_FORMATIONS()}<div class="actions" style="justify-content:center">${lienPlateforme(LIENS.ong, "Découvrir l'ONG Lueur d'Espoir")}</div></div></section>
   </main>` + PARTENAIRES + FOOT;
@@ -658,7 +689,7 @@ function bienvenue(form, type, data, res) {
     <svg class="coche" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="25"/><path d="M14 27l8 8 16-17"/></svg>
     <p class="eyebrow">${res.demo ? "Mode démonstration : non enregistré" : "Inscription enregistrée"}</p>
     <h2 tabindex="-1" id="merci">Bienvenue, <em>${esc(nom)}</em> !</h2>
-    <p class="lead-b">${type === "eleve" ? "Ton espace est prêt : l'Axe 1, l'Axe 2 et l'examen final de La Noblesse du Cœur." : "Ton espace est prêt : retrouve ici les évaluations de ta formation."}</p>
+    <p class="lead-b">${type === "eleve" ? "Ton espace est prêt : l'Axe 1, l'Axe 2 et leurs examens finaux, à La Noblesse du Cœur." : "Ton espace est prêt : retrouve ici les évaluations de ta formation."}</p>
     ${res.numero ? `<p class="idu-carte">Ton matricule<b>${esc(res.numero)}</b><small>C'est le numéro de ton certificat et ton identifiant pour accéder aux autres formations de BMT Green Academy. Garde-le précieusement.</small></p>` : ""}
     <div class="actions" style="justify-content:center"><a class="btn or" href="espace.html">Entrer dans mon espace</a></div></div>`;
   jauge(1); const pc = $("#pc"); if (pc) pc.textContent = "100 %";
@@ -667,10 +698,17 @@ function bienvenue(form, type, data, res) {
 }
 
 /* ---------------- aides communes aux quiz et à « Mon espace » ---------------- */
-const NB_QUESTIONS_EXAMEN = 7;                // un seul examen final : 4 questions de l'Axe 1 (paix + sensibilisation) et 3 de l'Axe 2, tirées au hasard à chaque tentative
-const CLE_EXAMEN_FAIT = "ndc_examen_fait";   // { cle, n } : combien de copies cet appareil a envoyées
+const NB_QUESTIONS_EXAMEN = 7;                // chaque axe a son examen final : 7 questions de l'axe, tirées au hasard à chaque tentative
+const SEUIL_EXAMEN = 70;                     // % pour réussir un examen final (le certificat demande les DEUX examens)
+const CLE_EXAMEN_FAIT = "ndc_examen_fait";   // { axe1: { cle, n, pct, reussi }, axe2: { … } } : ce que cet appareil sait de chaque examen
 const cleLocale = p => [p.etab, p.nom, p.prenom, p.classe].map(x => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim()).join("|");
-const examenFait = () => { const e = store.get(CLE_EXAMEN_FAIT, {}) || {}, p = profil(); return e.n > 0 && p && e.cle === cleLocale(p) ? e : null; };
+/* Tout ce qui décrit la PROGRESSION de la personne sur cet appareil : effacé quand quelqu'un d'autre s'inscrit ou clique « Ce n'est pas moi » (téléphone partagé). */
+const CLES_PROGRESSION = ["ndc_etapes", "ndc_examen_fait", "ndc_parcours", "ndc_quiz", "ndc_quiz_dernier", "ndc_reflexion"];
+const effacerProgression = () => { try { CLES_PROGRESSION.forEach(k => localStorage.removeItem(k)); } catch (e) {} };
+const virgule = n => String(n).replace(".", ",");
+const examenFait = axe => { const e = store.get(CLE_EXAMEN_FAIT, {}) || {}, p = profil(), x = e["axe" + axe]; return x && x.n > 0 && p && x.cle === cleLocale(p) ? x : null; };
+const examenReussi = axe => !!(examenFait(axe) && examenFait(axe).reussi);
+const examensReussis = () => examenReussi(1) && examenReussi(2);
 const SEUIL_QUIZ = 75;                       // % pour VALIDER un module et passer au suivant (4 bonnes réponses sur 5)
 const SEUIL_EXCELLENCE = 90;                 // % à partir duquel la note est « excellente » (5 sur 5)
 const NB_QUESTIONS_QUIZ = 5;                 // questions posées à chaque essai, tirées dans la réserve du module (8 à 12 questions)
@@ -695,8 +733,8 @@ const etatModule = (best, m) => best[m.id] == null ? "afaire" : best[m.id] >= SE
 const moduleValide = (best, m) => best[m.id] >= SEUIL_QUIZ;
 const LIBELLE_ETAT = { afaire: "À faire", encours: "À retravailler", maitrise: "Validé" };
 const minutes = m => Math.max(2, Math.round(m.questions.length * 0.4));
-/* L'examen final (un seul, sur les deux axes) s'ouvre quand TOUS les modules sont validés (75 % à leur auto-évaluation). Règle côté site : elle guide l'élève (le serveur ne la contrôle pas). */
-const examenProgres = () => { const best = store.get("ndc_quiz", {}) || {}, mods = tousModules(), restants = mods.filter(m => !moduleValide(best, m)); return { mods, restants, pret: mods.length > 0 && restants.length === 0 }; };
+/* L'examen final d'UN axe s'ouvre quand TOUS les modules de cet axe sont validés (75 % à leur auto-évaluation). Règle côté site : elle guide l'élève (le serveur ne la contrôle pas). */
+const axeProgres = id => { const best = store.get("ndc_quiz", {}) || {}, mods = tousModules().filter(m => m.axeId === id), restants = mods.filter(m => !moduleValide(best, m)); return { mods, restants, pret: mods.length > 0 && restants.length === 0 }; };
 /* bilan de la progression de la personne (meilleur score de chaque module, gardé sur son appareil) */
 function bilanQuiz() {
   const best = store.get("ndc_quiz", {}), mods = tousModules();
@@ -761,7 +799,7 @@ function renderBibliotheque() {
   UIok();
 }
 
-/* ---------------- mon espace : Axe 1, Axe 2, examens finaux : simple et regroupé ---------------- */
+/* ---------------- mon espace : Axe 1, Axe 2, examen final : simple et regroupé ---------------- */
 const lienPlateforme = (url, txt, cls = "sec") => url ? `<a class="btn ${cls}" href="${esc(url)}"${cibleLien(url)}>${txt}</a>` : "";
 /* Accès au pôle formation de BMT Green Academy : l'image du bouton (fond retiré), avec une phrase en vert gras au-dessus */
 const BOUTON_FORMATIONS = () => LIENS.academie
@@ -770,7 +808,7 @@ const BOUTON_FORMATIONS = () => LIENS.academie
   : `<div class="acces-formations"><p class="acces-txt"><strong>Pôle formation de BMT Green Academy</strong> : l'accès s'ouvrira très bientôt, quand les deux plateformes seront reliées.</p>
   <span class="btn-image ferme" role="img" aria-label="Accéder à la plateforme BMT Green Academy : accès bientôt ouvert"><img src="img/bouton-plateforme.webp" width="640" height="260" alt=""></span><p class="bientot">Accès bientôt ouvert</p><a class="lien-formations" href="formations.html">Voir tous les titres des formations</a></div>`;
 const EXPLICATION_ASYNCHRONE = `<div class="asynchrone"><h3>Une formation <em>asynchrone</em></h3>
-  <p>Pas de cours à heure fixe : tu reçois les supports dès ton inscription et tu avances à ton rythme, quand tu veux, depuis ton téléphone. Les corrigés s'affichent tout de suite. L'examen final s'ouvre dès que toutes les auto-évaluations sont faites.</p></div>`;
+  <p>Pas de cours à heure fixe : tu reçois les supports dès ton inscription et tu avances à ton rythme, quand tu veux, depuis ton téléphone. Les corrigés s'affichent tout de suite. L'examen de chaque axe s'ouvre dès que ses modules sont validés (75 %).</p></div>`;
 function renderEspace() {
   const p = profil();
   if (!p) { location.replace("commencer.html"); return; }
@@ -780,19 +818,22 @@ function renderEspace() {
   const ident = eleve ? `${esc(p.etab)} · ${esc(p.classe)}` : esc([p.ville, p.structure].filter(Boolean).join(" · ") || "Participant(e)");
   const axe = (id, nom, titre) => { const mods = B.mods.filter(m => m.axeId === id), faits = mods.filter(m => moduleValide(B.best, m)).length;
     return { t: `${nom} · ${titre}`, d: `${mods.length} modules : pour chacun, le cours puis son auto-évaluation (${SEUIL_QUIZ} % pour passer au suivant). ${faits} module${faits > 1 ? "s" : ""} validé${faits > 1 ? "s" : ""} sur ${mods.length}.`, fait: mods.length > 0 && faits === mods.length, href: "parcours.html?a=" + id, axe: true }; };
-  const examensFaits = !!examenFait(), EP = examenProgres();
+  const EP1 = axeProgres("axe1"), EP2 = axeProgres("axe2"), tous = examensReussis();
+  const examenEtape = (n, EP) => { const f = examenFait(n), ok = examenReussi(n);
+    return { t: `Examen final · Axe ${n}`, d: `${NB_QUESTIONS_EXAMEN} questions sur l'Axe ${n}, ${SEUIL_EXAMEN} % pour réussir. Tu peux le repasser autant de fois que tu veux : la meilleure note est gardée. ${ok ? "Réussi (" + virgule(f.pct) + " %)." : f ? "Pas encore réussi : tente à nouveau." : EP.pret ? "Il est ouvert : à toi de jouer." : "Il s'ouvre quand les modules de l'Axe " + n + " sont validés (" + EP.restants.length + " restant" + (EP.restants.length > 1 ? "s" : "") + ")."}`, fait: ok, href: "examen.html?axe=" + n }; };
   const parcours = [
     { t: "Inscription", d: "Ton profil et ton matricule sont enregistrés.", fait: true },
     ...(eleve ? [{ t: "Évaluation initiale", d: "7 affirmations sur ton comportement : le point de départ.", fait: !!E.eval_avant, href: "form.html?f=eval&phase=avant&moi=1" }] : []),
     axe("axe1", "Axe 1", "L'art de la paix"),
+    ...(ac.examen ? [examenEtape(1, EP1)] : []),
     axe("axe2", "Axe 2", "L'art de l'impact"),
-    ...(ac.examen ? [{ t: "Examen final", d: `Un seul examen sur les deux axes : ${NB_QUESTIONS_EXAMEN} questions tirées au hasard. Tu peux le repasser autant de fois que tu veux, la meilleure note est gardée. ${examensFaits ? "Copies envoyées : " + examenFait().n + "." : EP.pret ? "Il est ouvert : à toi de jouer." : "Il s'ouvre quand tous les modules sont validés (" + EP.restants.length + " restante" + (EP.restants.length > 1 ? "s" : "") + ")."}`, fait: examensFaits, href: "examen.html" },
-      { t: "Évaluation finale", d: "Les mêmes 7 affirmations : on mesure ta progression.", fait: !!E.eval_apres, href: "form.html?f=eval&phase=apres&moi=1", apres: examensFaits },
-      { t: "Mon certificat", d: "Dès que tu as réussi l'examen (70 % minimum), télécharge ton certificat d'Ambassadeur en PDF, avec ton nom et ton matricule.", fait: !!E.certificat, href: "certificat.html?moi=1", apres: examensFaits }] : []),
+    ...(ac.examen ? [examenEtape(2, EP2),
+      { t: "Évaluation finale", d: "Les mêmes 7 affirmations : on mesure ta progression.", fait: !!E.eval_apres, href: "form.html?f=eval&phase=apres&moi=1", apres: tous },
+      { t: "Mon certificat", d: "Quand tu as réussi les deux examens finaux (70 % minimum chacun), télécharge ton certificat d'Ambassadeur en PDF, avec ton nom et ton matricule.", fait: !!E.certificat, href: "certificat.html?moi=1", apres: tous }] : []),
   ];
   const actuelle = parcours.findIndex(e => !e.fait);
   const etapeHtml = (e, n) => { const etat = e.fait ? "fait" : n === actuelle ? "en-cours" : "a-venir", ouvert = e.href && (e.apres === undefined || e.apres);
-    return `<li class="etat-${etat}" style="--k:${n}"><span class="pastille">${e.fait ? "✓" : n + 1}</span><div><b>${e.t}</b><span>${e.d}</span></div>${ouvert && n > 0 ? `<a class="btn ${e.fait ? "sec" : "or"} petit" href="${e.href}">${e.fait ? "Revoir" : n === actuelle ? "Continuer" : "Ouvrir"}</a>` : e.apres === false ? '<span class="verrou">Après les examens</span>' : ""}</li>`; };
+    return `<li class="etat-${etat}" style="--k:${n}"><span class="pastille">${e.fait ? "✓" : n + 1}</span><div><b>${e.t}</b><span>${e.d}</span></div>${ouvert && n > 0 ? `<a class="btn ${e.fait ? "sec" : "or"} petit" href="${e.href}">${e.fait ? "Revoir" : n === actuelle ? "Continuer" : "Ouvrir"}</a>` : e.apres === false ? "<span class=\"verrou\">Après les deux examens</span>" : ""}</li>`; };
   const cible = actuelle >= 0 ? parcours[actuelle] : null;
   const suite = cible && cible.href && cible.apres !== false ? `<a class="continuer" href="${cible.href}"><span class="cont-eyebrow">Prochaine étape</span><b>${cible.t}</b><span>${cible.d}</span><i aria-hidden="true">→</i></a>` : "";
   const ensemble = B.mods.filter(m => moduleValide(B.best, m)).length;
@@ -807,7 +848,7 @@ function renderEspace() {
     <section class="plateforme-fin" aria-labelledby="pf-t"><h2 id="pf-t">Va plus <em>loin</em></h2>${BOUTON_FORMATIONS()}</section>
     <div class="actions" style="margin-top:22px">${INSTALLER}<button type="button" class="btn sec" id="autre">Ce n'est pas moi</button></div>
     <p class="help">Astuce : pour garder le site sur ton téléphone, ouvre le menu du navigateur et choisis « Ajouter à l'écran d'accueil ».</p></main>` + FOOT;
-  $("#autre").onclick = () => { try { ["ndc_profil", "ndc_etapes", "ndc_examen_fait", "ndc_parcours", "ndc_quiz"].forEach(k => localStorage.removeItem(k)); } catch (e) {} location.href = "commencer.html"; };
+  $("#autre").onclick = () => { effacerProgression(); try { localStorage.removeItem("ndc_profil"); } catch (e) {} location.href = "commencer.html"; };
   brancherInstaller(); allumerAnneaux();
   UIok();
 }

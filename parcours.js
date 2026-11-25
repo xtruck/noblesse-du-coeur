@@ -16,25 +16,25 @@ function renderParcours() {
 function pageAxe(id) {
   const axe = QUIZ.find(x => x.id === id), B = bilanQuiz(), mods = B.mods.filter(m => m.axeId === id), num = id === "axe2" ? 2 : 1;
   const [nom, titre] = axe.titre.split(" · "), faits = mods.filter(m => moduleValide(B.best, m)), suivant = mods.find(m => !moduleValide(B.best, m)) || null;
-  const dejaExamen = !!examenFait(), EP = examenProgres(), pret = EP.pret, reste = EP.restants.length, autreAxe = num === 1 ? "axe2" : "axe1";
+  const EPa = axeProgres(id), pret = EPa.pret, reste = EPa.restants.length, ok = examenReussi(num), dejaExamen = !!examenFait(num), peutExamen = !!(profil() && acces(profil()).examen);
   document.title = axe.titre + " — La Noblesse du Cœur";
   const etape = (m, n) => {
     const e = etatModule(B.best, m), s = B.best[m.id], img = (IMG_MODULE[m.id] || {}).c, verrou = n > 0 && !moduleValide(B.best, mods[n - 1]);
     const corps = `<span class="num-axe">${n + 1}</span>${img ? `<img class="mini-affiche" src="img/${img}.webp" width="60" height="90" loading="lazy" alt="">` : ""}
       <span class="txt-axe"><b>${esc(m.titre.replace(/^Module \d+ · /, ""))}</b><span>${verrou ? "Valide d'abord le module précédent (" + SEUIL_QUIZ + " % minimum)" : m.reflexion ? "Le cours, l'auto-évaluation (" + NB_QUESTIONS_QUIZ + " questions) et ta réflexion" : "Module " + (n + 1) + " · le cours, puis l'auto-évaluation (" + NB_QUESTIONS_QUIZ + " questions)"}</span></span>
       <span class="mpuce">${verrou ? "Verrouillé" : s == null ? "À suivre" : (e === "maitrise" ? "Validé · " : "À refaire · ") + s + " %"}</span>`;
-    return verrou ? `<li><span class="etape-axe etat-verrou" style="--k:${n}" aria-disabled="true">${corps}</span></li>` : `<li><a class="etape-axe etat-${e}" href="parcours.html?m=${esc(m.id)}" style="--k:${n}">${corps}</a></li>`;
+    return verrou ? `<li><span class="etape-axe etat-verrou" style="--k:${n}">${corps}</span></li>` : `<li><a class="etape-axe etat-${e}" href="parcours.html?m=${esc(m.id)}" style="--k:${n}">${corps}</a></li>`;
   };
   app().innerHTML = header() + `
   <section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">${esc(nom)}</span><h1>${titreHtml(num === 1 ? "L'art de la *paix*" : "L'art de l'*impact*")}</h1>
-    <p>${mods.length} modules à suivre dans l'ordre. Pour chacun : le cours, puis une auto-évaluation corrigée (${SEUIL_QUIZ} % pour passer au module suivant). Une fois les deux axes validés, un seul examen final.</p>
-    ${suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">${faits.length ? "Continuer" : "Commencer"} : module ${mods.indexOf(suivant) + 1}</a>` : `<a class="btn or" href="${pret ? "examen.html" : "parcours.html?a=" + autreAxe}">${pret ? "Passer à l'examen final" : "Continuer avec l'" + (num === 1 ? "Axe 2" : "Axe 1")}</a>`}</div>
+    <p>${mods.length} modules à suivre dans l'ordre. Pour chacun : le cours, puis une auto-évaluation corrigée (${SEUIL_QUIZ} % pour passer au module suivant). Quand tous les modules sont validés, tu passes l'examen final de l'axe.</p>
+    ${suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">${faits.length ? "Continuer" : "Commencer"} : module ${mods.indexOf(suivant) + 1}</a>` : (!peutExamen ? `<a class="btn or" href="${num === 1 ? "parcours.html?a=axe2" : "espace.html"}">${num === 1 ? "Passer à l'Axe 2" : "Retour à mon espace"}</a>` : !ok ? `<a class="btn or" href="examen.html?axe=${num}">Passer à l'examen final de l'Axe ${num}</a>` : num === 1 ? `<a class="btn or" href="parcours.html?a=axe2">Passer à l'Axe 2</a>` : examensReussis() ? `<a class="btn or" href="certificat.html?moi=1">Mon certificat</a>` : `<a class="btn or" href="examen.html?axe=1">Passer l'examen de l'Axe 1</a>`)}</div>
     <div class="qtete-anneau">${anneau(mods.length ? faits.length / mods.length : 0, faits.length + " / " + mods.length, "petit")}<small>modules validés</small></div></div></section>
   <main class="wrap" id="contenu" tabindex="-1">
     <h2 class="sec">Les modules, étape par étape</h2>
     <ol class="axe-etapes">${(() => { let der = ""; return mods.map((m, n) => { const t = m.partie && m.partie !== der ? `<li class="partie-t">${esc(m.partie)}</li>` : ""; der = m.partie || der; return t + etape(m, n); }).join(""); })()}</ol>
-    <div class="axe-examen"><div><span class="cont-eyebrow">Étape finale</span><h3>Examen final · les deux axes</h3><p>${pret ? "Tous les modules sont validés : " + NB_QUESTIONS_EXAMEN + " questions, que tu peux repasser autant de fois que tu veux (la meilleure note est gardée)." : "Un seul examen sur l'Axe 1 et l'Axe 2. Il s'ouvre quand tous les modules sont validés (" + SEUIL_QUIZ + " % chacun) : il en reste " + reste + "."}</p></div>
-      <a class="btn ${pret ? "or" : "sec"}" href="examen.html">${dejaExamen ? "Repasser l'examen" : pret ? "Passer l'examen" : "Voir ce qui reste"}</a></div>
+    ${peutExamen ? `<div class="axe-examen"><div><span class="cont-eyebrow">Étape finale</span><h3>Examen final · ${esc(nom)}</h3><p>${ok ? "Réussi : " + virgule(examenFait(num).pct) + " %. " + (num === 1 ? "Tu peux passer à l'Axe 2." : examensReussis() ? "Ton certificat t'attend." : "Il te reste l'examen de l'Axe 1 pour obtenir le certificat.") : pret ? "Tous les modules sont validés : " + NB_QUESTIONS_EXAMEN + " questions, " + SEUIL_EXAMEN + " % pour réussir, que tu peux repasser autant de fois que tu veux (la meilleure note est gardée)." : "Il s'ouvre quand tous les modules de l'axe sont validés (" + SEUIL_QUIZ + " % chacun) : il en reste " + reste + "."}</p></div>
+      <a class="btn ${pret && !ok ? "or" : "sec"}" href="examen.html?axe=${num}">${dejaExamen ? "Repasser l'examen" : pret ? "Passer l'examen" : "Voir ce qui reste"}</a></div>` : ""}
     <div class="actions" style="margin-top:22px"><a class="btn sec" href="espace.html">Retour à mon espace</a><a class="btn sec" href="bibliotheque.html">Bibliothèque (cours, guides, fiches)</a></div></main>` + FOOT;
   allumerAnneaux();
   UIok();
@@ -74,9 +74,9 @@ function parcoursModule(m) {
         <p class="parcours-sous">${esc(m.axe)} · ${m.partie ? esc(m.partie.split(" : ")[0]) : "module " + rang + " sur " + mods.length}${best != null ? " · meilleur score : " + best + " %" : ""}</p>
         <ol class="chemin">
           <li class="${vu[m.id] ? "fait" : ""}" id="e-cours"><span class="pastille">1</span><div><b>Lis le cours</b><span>${img.doc ? "Le document « Préserver sa vie » s'ouvre en PDF. Lis-le en entier avant l'auto-évaluation." : `Le cours de l'${esc(m.axe.split(" · ")[0])} s'ouvre en PDF. Repère le ${esc(m.titre.split(" · ")[0].toLowerCase())}.`}</span>
-            <a class="btn sec petit" id="ouvrir-cours" href="pdf/cours/${cours[0]}.pdf" target="_blank" rel="noopener">Ouvrir le cours (PDF, ${cours[3]})</a></div></li>
+            <a class="btn sec petit" id="ouvrir-cours" href="pdf/cours/${cours[0]}.pdf" target="_blank" rel="noopener">Ouvrir le cours (PDF, ${cours[3]})<span class="sr-seul"> (nouvel onglet)</span></a></div></li>
           ${img.f ? `<li><span class="pastille">2</span><div><b>Consulte la fiche du module</b><span>L'essentiel en images : objectifs, points clés, actions pratiques.</span></div></li>` : ""}
-          <li><span class="pastille">${img.f ? 3 : 2}</span><div><button type="button" class="btn or petit" id="aller" ${vu[m.id] ? "" : "disabled"}>Commencer l'auto-évaluation</button>
+          <li><span class="pastille">${img.f ? 3 : 2}</span><div><button type="button" class="btn or petit" id="aller" aria-describedby="aide-aller" ${vu[m.id] ? "" : "disabled"}>Commencer l'auto-évaluation</button>
             <span class="info-eval">${NB_QUESTIONS_QUIZ} questions · ta note et la correction s'affichent à la fin ; il faut ${SEUIL_QUIZ} % pour passer au module suivant. <em id="aide-aller">${vu[m.id] ? "" : "Ouvre d'abord le cours (étape 1)."}</em></span></div></li></ol>
         ${img.f ? `<div class="fiches" aria-label="Fiche du module">${img.f.map((f, k) => `<a href="img/${f}.webp" target="_blank" rel="noopener"><img src="img/${f}.webp" width="720" height="1080" loading="lazy" alt="Fiche du module, page ${k + 1}"></a>`).join("")}</div>` : ""}
       </div></div></main></div>`;
@@ -97,15 +97,15 @@ function jouerQuestions(m) {
   app().innerHTML = `<a class="saut" href="#contenu">Aller à la question</a><div class="qjeu">
     <header class="qbar"><a class="qx" href="parcours.html?m=${esc(m.id)}" aria-label="Quitter l'auto-évaluation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
       <div class="qtitre"><b>${esc(m.titre.replace(/^Module \d+ · /, ""))}</b><span>Auto-évaluation · ${esc(m.axe)}</span></div></header>
-    <div class="segs" role="progressbar" aria-label="Avancement" aria-valuemin="1" aria-valuemax="${Q.length}" aria-valuenow="1">${Q.map(() => "<i></i>").join("")}</div>
+    <div class="segs" role="progressbar" aria-label="Avancement" aria-valuemin="1" aria-valuemax="${Q.length}" aria-valuenow="1" aria-valuetext="Question 1 sur ${Q.length}">${Q.map(() => '<i aria-hidden="true"></i>').join("")}</div>
     <main id="contenu" tabindex="-1"><div id="zone"></div></main></div>`;
   const zone = $("#zone"), segs = [...document.querySelectorAll(".segs i")];
-  const maj = () => { segs.forEach((s, k) => { s.className = (rep[k] !== undefined ? "rep" : "") + (k === i ? " now" : ""); }); $(".segs").setAttribute("aria-valuenow", i + 1); };
+  const maj = () => { segs.forEach((s, k) => { s.className = (rep[k] !== undefined ? "rep" : "") + (k === i ? " now" : ""); }); $(".segs").setAttribute("aria-valuenow", Math.min(i + 1, Q.length)); $(".segs").setAttribute("aria-valuetext", i < Q.length ? "Question " + (i + 1) + " sur " + Q.length : "Relecture"); };
 
   function question() {
     maj();
     const q = Q[i];
-    zone.innerHTML = `<div class="qcarte entre"><p class="qnum">Question ${i + 1} sur ${Q.length}</p><h2 tabindex="-1" id="enonce">${esc(q.q)}</h2><div class="qopts">${q.o.map((x, k) =>
+    zone.innerHTML = `<div class="qcarte entre"><p class="qnum">Question ${i + 1} sur ${Q.length}</p><h2 tabindex="-1" id="enonce"><span class="sr-seul">Question ${i + 1} sur ${Q.length} : </span>${esc(q.q)}</h2><div class="qopts">${q.o.map((x, k) =>
       `<button type="button" class="qopt${rep[i] === k ? " choisi" : ""}" data-k="${k}" aria-pressed="${rep[i] === k}" aria-keyshortcuts="${LETTRES[k]} ${k + 1}"><b>${LETTRES[k]}</b><span>${esc(x.t)}</span></button>`).join("")}</div>
       <p class="astuce-clavier">Pas de correction maintenant : tu la verras à la fin, avec ta note. Clavier : touches A, B, C, D (ou 1 à 4), puis Entrée.</p>
       <div class="actions">${i > 0 ? '<button type="button" class="btn sec" id="prec">Précédente</button>' : ""}<button type="button" class="btn ${rep[i] === undefined ? "sec" : "or"}" id="suiv">${i === Q.length - 1 ? "Terminer" : "Suivante"}</button></div></div>`;
@@ -116,7 +116,8 @@ function jouerQuestions(m) {
     });
     const pr = $("#prec"); if (pr) pr.onclick = () => { i--; question(); };
     $("#suiv").onclick = () => { i++; i < Q.length ? question() : relecture(); };
-    if (i > 0) { $("#enonce").focus({ preventScroll: true }); scrollTo({ top: 0, behavior: sansMouvement() ? "auto" : "smooth" }); }
+    $("#enonce").focus({ preventScroll: true });
+    if (i > 0) scrollTo({ top: 0, behavior: sansMouvement() ? "auto" : "smooth" });
   }
 
   function relecture() {
@@ -135,7 +136,7 @@ function jouerQuestions(m) {
 
   /* clavier : A-D ou 1-4 choisissent une réponse ; Entrée passe à la suite */
   const touche = e => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || (e.target && e.target.closest && e.target.closest("input,textarea,select,[contenteditable]"))) return;
     const k = "abcd1234".indexOf(e.key.toLowerCase());
     if (k >= 0 && $(".qopt")) { const b = zone.querySelectorAll(".qopt")[k % 4]; if (b) { e.preventDefault(); b.click(); } }
     else if (e.key === "Enter" && document.activeElement && document.activeElement.tagName !== "BUTTON" && document.activeElement.tagName !== "A") { const b = $("#suiv") || $("#note"); if (b) { e.preventDefault(); b.click(); } }
@@ -147,7 +148,7 @@ function jouerQuestions(m) {
     const juste = k => rep[k] !== undefined && Q[k].o[rep[k]].ok, bon = Q.filter((q, k) => juste(k)).length, ratees = Q.filter((q, k) => !juste(k));
     const pct = Math.round(bon / Q.length * 100), s = bon > 1 ? "s" : "", reussi = pct >= SEUIL_QUIZ, sec = Math.round((performance.now() - debut) / 1000);
     const best = store.get("ndc_quiz", {}), record = best[m.id] != null && pct > best[m.id];
-    if (best[m.id] == null || pct > best[m.id]) { best[m.id] = pct; store.set("ndc_quiz", best); }
+    let gardee = true; if (best[m.id] == null || pct > best[m.id]) { best[m.id] = pct; gardee = store.set("ndc_quiz", best); }
     memoire[m.id] = { q: Q.map(q => q.idx), r: ratees.map(q => q.idx) }; store.set("ndc_quiz_dernier", memoire);   // pour que le prochain essai pose d'autres questions
     envoyerScore(m, bon, Q.length, pct);
     const dansAxe = tousModules().filter(x => x.axeId === m.axeId), suivant = dansAxe[dansAxe.findIndex(x => x.id === m.id) + 1];
@@ -157,12 +158,14 @@ function jouerQuestions(m) {
     segs.forEach((x, k) => { x.className = juste(k) ? "s-ok" : "s-ko"; });
     const correction = Q.map((q, k) => `<details class="rev ${juste(k) ? "juste" : "fausse"}"${juste(k) ? "" : " open"}><summary><span class="ico-rev" aria-hidden="true">${juste(k) ? "✓" : "✗"}</span> ${esc(q.q)}</summary>
       ${juste(k) ? "" : `<p>${rep[k] === undefined ? "<b>Tu n'as pas répondu.</b>" : "<b>Ta réponse :</b> " + esc(q.o[rep[k]].t)}</p>`}<p><b>Bonne réponse :</b> ${esc(q.ok)}</p><p>${esc(q.e)}</p><small>Dans le cours : ${esc(q.ref)}</small></details>`).join("");
-    const suite = reussi ? (suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">Module suivant</a>` : `<a class="btn or" href="examen.html">${examenProgres().pret ? "Passer à l'examen final" : "Voir l'examen final"}</a>`) + (pct < 100 ? '<button type="button" class="btn sec" id="refaire">Refaire pour viser le sans-faute</button>' : "")
-      : `<button type="button" class="btn or" id="refaire">Recommencer avec de nouvelles questions</button><a class="btn sec" href="pdf/cours/${coursModule(m)[0]}.pdf" target="_blank" rel="noopener">Relire le cours (PDF)</a>`;
-    zone.innerHTML = `<div class="qres entre"><div class="anneau-grand">${anneau(pct / 100, sansMouvement() ? pct + " %" : "0 %", "grand")}${etincelles}</div>
+    const numAxe = m.axeId === "axe2" ? 2 : 1, peutExamen = !!(profil() && acces(profil()).examen);
+    const finAxe = peutExamen ? `<a class="btn or" href="examen.html?axe=${numAxe}">${axeProgres(m.axeId).pret ? "Passer à l'examen final de l'Axe " + numAxe : "Voir l'examen final de l'Axe " + numAxe}</a>` : numAxe === 1 ? `<a class="btn or" href="parcours.html?a=axe2">Passer à l'Axe 2</a>` : `<a class="btn or" href="espace.html">Retour à mon espace</a>`;
+    const suite = reussi ? (suivant ? `<a class="btn or" href="parcours.html?m=${esc(suivant.id)}">Module suivant</a>` : finAxe) + (pct < 100 ? '<button type="button" class="btn sec" id="refaire">Refaire pour viser le sans-faute</button>' : "")
+      : `<button type="button" class="btn or" id="refaire">Recommencer avec de nouvelles questions</button><a class="btn sec" href="pdf/cours/${coursModule(m)[0]}.pdf" target="_blank" rel="noopener">Relire le cours (PDF)<span class="sr-seul"> (nouvel onglet)</span></a>`;
+    zone.innerHTML = `<div class="qres entre"><div class="anneau-grand" aria-hidden="true">${anneau(pct / 100, sansMouvement() ? pct + " %" : "0 %", "grand")}${etincelles}</div>
       <h2 tabindex="-1" id="enonce">${titre}</h2><p class="qres-mot">${bon} bonne${s} réponse${s} sur ${Q.length}. ${mot}${record ? " C'est ton meilleur score." : ""}</p>
       <div class="puces centre">${puce(bon, "bonnes")}${puce(Q.length - bon, "à revoir")}${puce(Math.floor(sec / 60) + " min " + String(sec % 60).padStart(2, "0"), "durée")}</div>
-      <p class="envoi-etat" id="envoi-etat" role="status">Envoi du résultat…</p>
+      <p class="envoi-etat" id="envoi-etat" role="status">Envoi du résultat…</p>${gardee ? "" : '<p class="envoi-etat envoi-mal" role="alert">Ton appareil ne peut pas garder ta progression : libère de la place ou quitte la navigation privée, sinon ce module ne sera pas validé ici.</p>'}
       <div class="actions centre">${suite}<a class="btn sec" href="parcours.html?a=${esc(m.axeId)}">Retour à l'axe</a></div>
       ${m.reflexion ? blocReflexion(m) : ""}
       <h3 class="revoir-t">La correction</h3><div class="revoir">${correction}</div></div>`;

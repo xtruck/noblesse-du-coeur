@@ -153,3 +153,10 @@ test('le mouvement n\'anime que transform et opacity : aucune transition de larg
   }
   assert.deepStrictEqual(fautes, [], 'transitions sur des propriétés de mise en page :\n  ' + fautes.join('\n  '));
 });
+
+test('tous les scripts du site sont syntaxiquement valides (une virgule ou une apostrophe oubliée casserait toutes les pages)', () => {
+  const vm = require('node:vm');
+  ['app.js', 'parcours.js', 'examen.js', 'forms.js', 'quiz-data.js', 'config.js', 'ui.js', 'sw.js'].forEach(f => {
+    assert.doesNotThrow(() => new vm.Script(lire(f), { filename: f }), `${f} contient une erreur de syntaxe`);
+  });
+});
