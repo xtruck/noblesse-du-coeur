@@ -27,7 +27,7 @@ async function appelApi(corps) {
 /* Profil de la personne (élève ou participant) : gardé sur son appareil après l'inscription. Il décide de ce qu'elle voit dans « Mon espace ». */
 const FORMATION_NDC = "La Noblesse du Cœur : programme éducatif de sensibilisation citoyenne";
 const profil = () => { const p = store.get("ndc_profil", null); return p && p.type ? p : null; };
-const acces = p => ({ quiz: !!p, examen: !!p && p.type === "eleve" });   // tout inscrit suit le parcours ; l'examen final noté est ouvert aux élèves des lycées pour l'instant
+const acces = p => ({ quiz: !!p, examen: !!p });   // tout inscrit suit le parcours ; l'examen final noté est ouvert aux élèves des lycées pour l'instant
 const NAV = [["index.html", "Accueil"], ["equipe.html", "Espace équipe"]];                                   // site public
 const NAV_EQUIPE = [["equipe.html", "Parcours"], ["liens.html", "Liens"], ["dashboard.html", "Résultats"]];   // espace réservé à l'équipe
 const ctaNav = mode => mode === "equipe" ? ["index.html", "Site public"] : profil() ? ["espace.html", "Mon espace"] : ["commencer.html", "Commencer"];
@@ -478,12 +478,13 @@ function confettis(duree = 4200) {
 
 async function certificatEleve() {
   const pr = profil();
-  if (!pr || pr.type !== "eleve") { location.replace(pr ? "espace.html" : "commencer.html"); return; }
+  if (!pr) { location.replace("commencer.html"); return; }
+  if (profilIncomplet(pr)) { completerProfil(pr, certificatEleve); return; }
   document.title = "Mon certificat — La Noblesse du Cœur";
   const message = (titre, texte, extra = "") => { app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Mon certificat</span><h1>${titre}</h1></div></div></section>
     <main class="wrap" id="contenu" tabindex="-1"><div class="bloc no-rv entre"><p class="lead-b">${texte}</p>${extra}<div class="actions"><a class="btn sec" href="espace.html">Retour à mon espace</a></div></div></main>` + FOOT; UIok(); };
   message("Je vérifie…", "Un instant : je consulte ton résultat.");
-  const r = await appelApi({ action: "certificat", etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe });
+  const r = await appelApi({ action: "certificat", ...identiteExamen(pr) });
   if (!r.ok) { message("Un souci", esc(r.error || "Impossible de vérifier ton certificat pour le moment. Réessaie dans un instant.")); return; }
   if (r.certificat === "aucun") { message("Pas encore d'examen", "Tu n'as pas encore passé d'examen final. Le certificat s'obtient en réussissant les deux examens, un par axe (" + SEUIL_EXAMEN + " % minimum chacun).", '<div class="actions"><a class="btn or" href="examen.html">Aller aux examens finaux</a></div>'); return; }
   if (r.certificat === "non") {
@@ -701,7 +702,7 @@ function bienvenue(form, type, data, res) {
 const NB_QUESTIONS_EXAMEN = 7;                // chaque axe a son examen final : 7 questions de l'axe, tirées au hasard à chaque tentative
 const SEUIL_EXAMEN = 70;                     // % pour réussir un examen final (le certificat demande les DEUX examens)
 const CLE_EXAMEN_FAIT = "ndc_examen_fait";   // { axe1: { cle, n, pct, reussi }, axe2: { … } } : ce que cet appareil sait de chaque examen
-const cleLocale = p => [p.etab, p.nom, p.prenom, p.classe].map(x => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim()).join("|");
+const cleLocale = p => [p.etab, p.nom, p.prenom, p.classe || p.ville].map(x => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim()).join("|");
 /* Tout ce qui décrit la PROGRESSION de la personne sur cet appareil : effacé quand quelqu'un d'autre s'inscrit ou clique « Ce n'est pas moi » (téléphone partagé). */
 const CLES_PROGRESSION = ["ndc_etapes", "ndc_examen_fait", "ndc_parcours", "ndc_quiz", "ndc_quiz_dernier", "ndc_reflexion"];
 const effacerProgression = () => { try { CLES_PROGRESSION.forEach(k => localStorage.removeItem(k)); } catch (e) {} };
@@ -711,7 +712,32 @@ const examenReussi = axe => !!(examenFait(axe) && examenFait(axe).reussi);
 const examensReussis = () => examenReussi(1) && examenReussi(2);
 /* L'Axe 2 reste verrouillé tant que l'examen final de l'Axe 1 n'est pas réussi (les participants, qui ne passent pas d'examen, ne sont pas concernés).
    Règle côté site : elle guide l'élève sur son appareil. */
-const axeVerrouille = id => id === "axe2" && !!(profil() && acces(profil()).examen) && !examenReussi(1);
+const axeVerrouille = id => id === "axe2" && !!profil() && !examenReussi(1);
+/* Ce qui identifie la personne auprès du serveur (examens, certificat) : un élève = établissement + nom + prénoms + classe ; un participant = nom + prénoms + ville. */
+const identiteExamen = p => p.type === "eleve" ? { profil: "eleve", etablissement: p.etab, nom: p.nom, prenom: p.prenom, classe: p.classe } : { profil: "participant", nom: p.nom, prenom: p.prenom, ville: p.ville };
+/* Un participant inscrit avant le changement (nom et téléphone seulement) doit donner ses prénoms et sa ville pour passer les examens et recevoir son certificat :
+   on l'inscrit à nouveau avec ces informations, et le serveur lui donne son matricule. */
+const profilIncomplet = p => !!p && p.type === "participant" && !(p.prenom && p.ville);
+function completerProfil(p, suite) {
+  document.title = "Complète ton profil — La Noblesse du Cœur";
+  app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Une dernière chose</span><h1>Complète ton <em>profil</em></h1><p>Pour passer les examens et recevoir ton certificat, vérifie ton nom, indique tes prénoms et où tu habites.</p></div></div></section>
+    <main class="wrap" id="contenu" tabindex="-1"><form id="completer" class="bloc no-rv entre" novalidate>
+      <div class="fld"><label for="cp-nom">Nom</label><input id="cp-nom" type="text" required autocomplete="family-name" value="${esc(p.nom || "")}"></div>
+      <div class="fld"><label for="cp-prenom">Prénoms</label><input id="cp-prenom" type="text" required autocomplete="given-name"></div>
+      <div class="fld"><label for="cp-ville">Où habites-tu ? (ville ou commune)</label><input id="cp-ville" type="text" required autocomplete="address-level2"></div>
+      <div id="cp-msg" aria-live="polite"></div><div class="actions"><button class="btn or" type="submit">Enregistrer et continuer</button><a class="btn sec" href="espace.html">Plus tard</a></div></form></main>` + FOOT;
+  UIok();
+  $("#completer").onsubmit = async ev => {
+    ev.preventDefault();
+    const nom = $("#cp-nom").value.trim(), prenom = $("#cp-prenom").value.trim(), ville = $("#cp-ville").value.trim(), b = $("#completer .btn"), msg = $("#cp-msg");
+    if (!nom || !prenom || !ville) { msg.innerHTML = '<div class="warn" role="alert">Écris ton nom, tes prénoms et ta ville.</div>'; return; }
+    window.UI && UI.charge(b, true, "Enregistrement…");
+    const res = notConfigured() ? { ok: true } : await appelApi({ form: "inscription", profil: "participant", nom, prenom, ville, tel: p.tel || "", structure: p.structure || "", formation: p.formation || FORMATION_NDC });
+    if (!res.ok) { window.UI && UI.charge(b, false, "Enregistrer et continuer"); msg.innerHTML = `<div class="warn" role="alert">${esc(res.error || "Enregistrement impossible. Réessaie dans un instant.")}</div>`; return; }
+    store.set("ndc_profil", { ...p, nom, prenom, ville, numero: res.numero || p.numero });
+    suite();
+  };
+}
 function ecranAxe2Verrouille() {
   document.title = "Axe 2 verrouillé — La Noblesse du Cœur";
   const prete = axeProgres("axe1").pret;
@@ -839,7 +865,7 @@ function renderEspace() {
     ...(ac.examen ? [examenEtape(1, EP1)] : []),
     axe("axe2", "Axe 2", "L'art de l'impact"),
     ...(ac.examen ? [examenEtape(2, EP2),
-      { t: "Évaluation finale", d: "Les mêmes 7 affirmations : on mesure ta progression.", fait: !!E.eval_apres, href: "form.html?f=eval&phase=apres&moi=1", apres: tous },
+      ...(eleve ? [{ t: "Évaluation finale", d: "Les mêmes 7 affirmations : on mesure ta progression.", fait: !!E.eval_apres, href: "form.html?f=eval&phase=apres&moi=1", apres: tous }] : []),
       { t: "Mon certificat", d: "Quand tu as réussi les deux examens finaux (70 % minimum chacun), télécharge ton certificat d'Ambassadeur en PDF, avec ton nom et ton matricule.", fait: !!E.certificat, href: "certificat.html?moi=1", apres: tous }] : []),
   ];
   const actuelle = parcours.findIndex(e => !e.fait);

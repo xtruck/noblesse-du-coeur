@@ -1,5 +1,5 @@
 /* Hors-ligne : pages et images en cache ; PDF mis en cache à la première ouverture, puis rafraîchis en arrière-plan. */
-const V = "bmt-v24";
+const V = "bmt-v25";
 // images en WebP : bandeaux (1280 px) et versions mobiles (768 px) ; le certificat haute définition se met en cache à sa première ouverture
 const IMGS = ["basilique", "bassam", "hkb", "man", "plateau", "savane"].flatMap(n => ["img/" + n + "-1280.webp", "img/" + n + "-768.webp", "img/" + n + "-thumb.webp"]);
 const CORE = ["index.html", "equipe.html", "commencer.html", "espace.html", "examen.html", "examen.js", "bibliotheque.html", "form.html", "liens.html", "certificat.html", "dashboard.html", "parcours.html", "ong.html", "formations.html", "offline.html", "style.css", "ui.js", "app.js", "forms.js", "parcours.js", "quiz-data.js", "config.js", "manifest.json",

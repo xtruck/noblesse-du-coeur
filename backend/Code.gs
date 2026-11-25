@@ -222,13 +222,25 @@ function certificatStatut_(m) {
   return { statut: reste.length ? 'non' : 'ouvert', reste: reste };
 }
 
+/* Qui passe l'examen ? Un ÉLÈVE (établissement, nom, prénoms, classe) ou un PARTICIPANT (nom, prénoms, ville) : même parcours, mêmes examens, même certificat.
+   La clé est celle de l'inscription (elle sert aussi à retrouver le matricule, que le serveur lit toujours dans la feuille d'inscriptions). */
+function identiteExamen_(d) {
+  var participant = !!d && d.profil === 'participant';
+  var id = participant ? propre_({ nom: d.nom, prenom: d.prenom, ville: d.ville }) : propre_({ etablissement: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe });
+  var requis = participant ? ['nom', 'prenom', 'ville'] : ['etablissement', 'nom', 'prenom', 'classe'];
+  var manque = requis.filter(function (k) { return !id[k] || !String(id[k]).trim(); }).length;
+  return { participant: participant, id: id,
+    manque: manque ? (participant ? 'Renseignez votre nom, prénoms et ville.' : 'Renseignez votre établissement, nom, prénoms et classe.') : '',
+    cle: participant ? ['participant', id.nom, id.prenom, id.ville].map(normCle_).join('|') : cleEleve_(id),
+    feuilleInsc: participant ? ONGLET.inscription : ONGLET.eleve_inscr };
+}
+
 /* L'élève peut repasser chaque examen autant de fois qu'il veut : chaque tentative est comptée, la MEILLEURE note est gardée. */
 function examenNoter_(d) {
   var axe = axeDemande_(d), B = axe ? banqueAxe_(axe) : [];
   if (!B.length || !examenOuvert_()) return json_({ ok: false, error: 'L\'examen n\'est pas ouvert.' });
-  var id = propre_({ etablissement: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe });   // le matricule du navigateur est ignoré : on le relit dans les inscriptions
-  var manque = ['etablissement', 'nom', 'prenom', 'classe'].filter(function (k) { return !id[k] || !String(id[k]).trim(); });
-  if (manque.length) return json_({ ok: false, error: 'Renseignez votre établissement, nom, prénoms et classe.' });
+  var ident = identiteExamen_(d), id = ident.id;   // le matricule du navigateur est ignoré : on le relit dans les inscriptions
+  if (ident.manque) return json_({ ok: false, error: ident.manque });
   if (!d.reponses || typeof d.reponses !== 'object' || Array.isArray(d.reponses)) return json_({ ok: false, error: 'Copie illisible' });
   /* les questions de la copie : exactement celles d'un tirage de CET axe (nombre contrôlé), sans doublon, toutes dans la réserve de l'axe */
   var ids = Array.isArray(d.ids) ? d.ids.map(Number) : [], vus = {}, tirees = [];
@@ -244,9 +256,9 @@ function examenNoter_(d) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sh = ss.getSheetByName(ONGLET_EXAMEN) || ss.insertSheet(ONGLET_EXAMEN);
-    var base = cleEleve_(id), cle = base + '|axe' + axe, insc = ss.getSheetByName(ONGLET.eleve_inscr);
+    var base = ident.cle, cle = base + '|axe' + axe, insc = ss.getSheetByName(ident.feuilleInsc);
     id.numero = insc ? numeroExistant_(insc, base) || '' : '';
-    var entete = ['horodatage', 'cle', 'numero', 'etablissement', 'nom', 'prenom', 'classe', 'note', 'total', 'axe1', 'axe2', 'pct', 'tentatives', 'derniere_pct', 'reponses', 'date_reussite', 'axe'];
+    var entete = ['horodatage', 'cle', 'numero', 'etablissement', 'nom', 'prenom', 'classe', 'note', 'total', 'axe1', 'axe2', 'pct', 'tentatives', 'derniere_pct', 'reponses', 'date_reussite', 'axe', 'profil'];
     if (sh.getLastRow() < 1) {
       sh.getRange(1, 1, 1, entete.length).setValues([entete]).setFontWeight('bold').setBackground('#14472f').setFontColor('#ffffff');
       sh.setFrozenRows(1);
@@ -254,7 +266,7 @@ function examenNoter_(d) {
     else if (sh.getLastColumn() < entete.length) sh.getRange(1, 1, 1, entete.length).setValues([entete]);   // ancienne feuille : on ajoute les colonnes qui manquent
     var r = examenCorriger_(tirees, rep);
     var compact = tirees.map(function (q) { return q.id + ':' + (rep[q.id] === undefined ? '-' : rep[q.id]); }).join(' ');
-    var ligne = [new Date(), cle, id.numero || '', id.etablissement, id.nom, id.prenom, id.classe, r.note, r.total, r.axe1, r.axe2, r.pct, 1, r.pct, compact, r.pct >= EXAMEN_SEUIL_PCT ? new Date() : '', axe];
+    var ligne = [new Date(), cle, id.numero || '', ident.participant ? '' : id.etablissement, id.nom, id.prenom, ident.participant ? id.ville : id.classe, r.note, r.total, r.axe1, r.axe2, r.pct, 1, r.pct, compact, r.pct >= EXAMEN_SEUIL_PCT ? new Date() : '', axe, ident.participant ? 'participant' : 'eleve'];
     var deja = sh.getLastRow() > 1 ? sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(cle).matchEntireCell(true).matchCase(true).findNext() : null;
     var tentative = 1, meilleurPct = r.pct;
     if (deja) {                                           // nouvelle tentative : on compte, et on ne remplace que si la note est meilleure
@@ -263,7 +275,7 @@ function examenNoter_(d) {
       var meilleure = r.pct > (Number(cur[i('pct')]) || 0);
       meilleurPct = meilleure ? r.pct : (Number(cur[i('pct')]) || 0);
       var nouvelle = meilleure ? ligne.slice() : cur.slice();
-      nouvelle[0] = new Date(); nouvelle[i('tentatives')] = tentative; nouvelle[i('derniere_pct')] = r.pct; nouvelle[i('axe')] = axe;
+      nouvelle[0] = new Date(); nouvelle[i('tentatives')] = tentative; nouvelle[i('derniere_pct')] = r.pct; nouvelle[i('axe')] = axe; nouvelle[i('profil')] = ident.participant ? 'participant' : 'eleve';
       if (!nouvelle[i('numero')] && id.numero) nouvelle[i('numero')] = id.numero;
       nouvelle[i('date_reussite')] = cur[i('date_reussite')] || (r.pct >= EXAMEN_SEUIL_PCT ? new Date() : '');   // date de la PREMIÈRE réussite, qui ne bouge plus
       sh.getRange(rang, 1, 1, entete.length).setValues([nouvelle]);
@@ -299,17 +311,16 @@ function jourIso_(v) {
    Certificat d'Ambassadeur, le même pour tous : il s'ouvre automatiquement quand les DEUX examens (Axe 1 et Axe 2) sont réussis.
    Sa date est celle de la réussite du second examen. Les 200 meilleurs restent classés dans le tableau de bord (cérémonie), sans différence de certificat. */
 function certificatDonnees_(d) {
-  var id = propre_({ etablissement: d.etablissement, nom: d.nom, prenom: d.prenom, classe: d.classe });
-  var manque = ['etablissement', 'nom', 'prenom', 'classe'].filter(function (k) { return !id[k] || !String(id[k]).trim(); });
-  if (manque.length) return json_({ ok: false, error: 'Renseignez votre établissement, nom, prénoms et classe.' });
-  var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(ONGLET_EXAMEN), base = cleEleve_(id);
+  var ident = identiteExamen_(d), id = ident.id;
+  if (ident.manque) return json_({ ok: false, error: ident.manque });
+  var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(ONGLET_EXAMEN), base = ident.cle;
   var m = examensDe_(sh, base);
   if (m.p[1] === null && m.p[2] === null) return json_({ ok: true, certificat: 'aucun' });
   var cert = certificatStatut_(m), rep = { ok: true, certificat: cert.statut, reste: cert.reste, pct1: m.p[1], pct2: m.p[2] };
   if (cert.statut === 'ouvert') {
     var d1 = m.d[1] ? new Date(m.d[1]).getTime() : 0, d2 = m.d[2] ? new Date(m.d[2]).getTime() : 0;
     rep.date = jourIso_(new Date(Math.max(d1, d2)));
-    var insc = ss.getSheetByName(ONGLET.eleve_inscr), numero = insc ? numeroExistant_(insc, base) || '' : '';   // le matricule des inscriptions fait foi
+    var insc = ss.getSheetByName(ident.feuilleInsc), numero = insc ? numeroExistant_(insc, base) || '' : '';   // le matricule des inscriptions fait foi
     var f = sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(base + '|axe1').matchEntireCell(true).matchCase(true).findNext() || sh.getRange(2, 2, sh.getLastRow() - 1, 1).createTextFinder(base + '|axe2').matchEntireCell(true).matchCase(true).findNext();
     var entete = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0], ligne = f ? sh.getRange(f.getRow(), 1, 1, entete.length).getValues()[0] : [];
     rep.nom = String(ligne[entete.indexOf('nom')] || id.nom); rep.prenom = String(ligne[entete.indexOf('prenom')] || id.prenom); rep.numero = numero || String(ligne[entete.indexOf('numero')] || '');
@@ -423,7 +434,7 @@ function calculer(D, opts) {
     var k = [r.etablissement, r.nom, r.prenom, r.classe].map(norm).join('|'), note = num(r.note) || 0, total = num(r.total) || 0, p = num(r.pct);
     if (p === null) p = total ? Math.round(note / total * 1000) / 10 : 0;
     var x = XP[k] = XP[k] || { nom: String(r.nom || '').trim(), prenom: String(r.prenom || '').trim(), etab: String(r.etablissement || '').trim(), classe: String(r.classe || '').trim(),
-      numero: '', pct1: null, pct2: null, note1: 0, tot1: 0, note2: 0, tot2: 0, t1: 0, t2: 0 };
+      numero: '', profil: r.profil === 'participant' ? 'Participant' : 'Élève', pct1: null, pct2: null, note1: 0, tot1: 0, note2: 0, tot2: 0, t1: 0, t2: 0 };
     if (r.numero && !x.numero) x.numero = String(r.numero);
     if (x['pct' + a] === null || p > x['pct' + a]) { x['pct' + a] = p; x['note' + a] = note; x['tot' + a] = total; x['t' + a] = num(r.tentatives) || 1; }
   });
@@ -471,7 +482,7 @@ function calculer(D, opts) {
   QZ.forEach(function (r) { var o = pers(r, r.profil === 'participant' ? 'Participant' : 'Élève'); o.quizEssais++; o.quizTot += num(r.pct) || 0;
     var mk = String(r.module || ''), mm = o.modules[mk] = o.modules[mk] || { titre: String(r.titre || mk), n: 0, best: 0, dernier: 0 };
     mm.n++; mm.dernier = num(r.pct) || 0; mm.best = Math.max(mm.best, mm.dernier); });
-  X.forEach(function (x) { var o = pers({ etablissement: x.etab, nom: x.nom, prenom: x.prenom, classe: x.classe }, 'Élève'); o.examPct = x.pct; o.examReussi = x.complet ? x.reussi : null; });
+  X.forEach(function (x) { var o = pers({ etablissement: x.etab, nom: x.nom, prenom: x.prenom, classe: x.classe }, x.profil); o.examPct = x.pct; o.examReussi = x.complet ? x.reussi : null; });
   out.personnes = Object.keys(PP).map(function (k) { var o = PP[k];
     return { type: o.type, nom: o.nom, prenom: o.prenom, etab: o.etab, classe: o.classe, formation: o.formation, quizEssais: o.quizEssais,
              quizMoy: o.quizEssais ? Math.round(o.quizTot / o.quizEssais) : null, examPct: o.examPct, examReussi: o.examReussi, tel: o.tel, numero: o.numero,

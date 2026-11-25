@@ -11,11 +11,12 @@ function renderExamen() {
   const pr = profil();
   if (!pr) { location.replace("commencer.html"); return; }
   if (!acces(pr).examen) { location.replace("espace.html"); return; }
+  if (profilIncomplet(pr)) { completerProfil(pr, renderExamen); return; }
   const axe = Number(new URLSearchParams(location.search).get("axe")), info = AXES_EXAMEN[axe];
   if (!info) { choixExamen(pr); return; }
   if (axeVerrouille("axe" + axe)) { ecranAxe2Verrouille(); return; }
   document.title = `Examen final · ${info.nom} — La Noblesse du Cœur`;
-  app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Examen final · ${info.nom}</span><h1>${titreHtml(info.court)}</h1><p>${esc(pr.prenom || pr.nom)} · ${esc(pr.etab)} · ${esc(pr.classe)}</p></div></div></section>
+  app().innerHTML = header() + `<section class="qtete"><div class="wrap qtete-in"><div class="qtete-txt"><span class="eyebrow">Examen final · ${info.nom}</span><h1>${titreHtml(info.court)}</h1><p>${esc(pr.prenom || pr.nom)} · ${pr.type === "eleve" ? esc(pr.etab) + " · " + esc(pr.classe) : esc(pr.ville || "")}</p></div></div></section>
   <div class="progression" id="prog" hidden><div class="wrap"><b>Question</b><span class="jauge" role="progressbar" aria-label="Avancement"><i></i></span><small id="pc"></small></div></div>
   <main class="wrap" id="contenu" tabindex="-1"><div id="zone"></div></main>` + FOOT;
   const zone = $("#zone");
@@ -89,7 +90,7 @@ function renderExamen() {
     deverrouillerSon();                                              // le clic autorise le son de la célébration finale
     const b = $("#envoyer"); window.UI ? UI.charge(b, true, "Envoi de ta copie…") : (b.disabled = true);
     const avant = examensReussis();                                  // le certificat était-il déjà ouvert avant cet envoi ?
-    const r = await appelApi({ action: "examen_noter", axe, etablissement: pr.etab, nom: pr.nom, prenom: pr.prenom, classe: pr.classe, numero: pr.numero || "", ids: Q.map(q => q.id), reponses: rep });
+    const r = await appelApi({ action: "examen_noter", axe, ...identiteExamen(pr), ids: Q.map(q => q.id), reponses: rep });
     envoi = false;
     if (r.ok) {
       const e = store.get(CLE_EXAMEN_FAIT, {}) || {}, ancien = examenFait(axe), meilleur = r.meilleurPct ?? r.pct ?? 0;
@@ -104,7 +105,7 @@ function renderExamen() {
 
   /* après l'envoi : la note, ce qui reste à faire (l'autre examen, le certificat), puis le corrigé */
   function termine(r) {
-    const evalFaite = store.get("ndc_etapes", {}).eval_apres, reussi = r.reussi, tentative = r.tentative || 1, autre = axe === 1 ? 2 : 1;
+    const evalFaite = pr.type !== "eleve" || store.get("ndc_etapes", {}).eval_apres, reussi = r.reussi, tentative = r.tentative || 1, autre = axe === 1 ? 2 : 1;
     const n = 20, feu = UI_REDUIT() || !reussi ? "" : Array.from({ length: n }, (_, k) => { const a = (k / n) * 2 * Math.PI + Math.random() * .3, rr = 90 + Math.random() * 110; return `<i class="etincelle" style="--k:${k};--dx:${Math.round(Math.cos(a) * rr)}px;--dy:${Math.round(Math.sin(a) * rr)}px"></i>`; }).join("");
     const prog = $("#prog"); if (prog) prog.hidden = true;
     const corriges = (r.corriges || []).map(c => `<details class="rev"${c.juste ? "" : " open"}><summary>${c.juste ? "✓" : "✗"} ${esc(c.q)}</summary><p><b>Bonne réponse :</b> ${esc(c.bonne)}</p>${c.juste ? "" : `<p>${c.choix ? "Ta réponse : " + esc(c.choix) : "Tu n'as pas répondu."}</p>`}</details>`).join("");

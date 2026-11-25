@@ -299,3 +299,29 @@ test("la date du certificat est celle de la réussite du SECOND examen, et un es
   post(copie(2, false));
   assert.strictEqual(post({ action: 'certificat', ...eleve }).date, premiere.date);
 });
+
+test("un participant passe les mêmes examens : identité nom + prénoms + ville, matricule des inscriptions, certificat après les deux", () => {
+  const { post, classeur } = monde();
+  const part = { profil: 'participant', nom: 'Koffi', prenom: 'Awa', ville: 'Bingerville' };
+  const insc = post({ form: 'inscription', ...part, formation: 'La Noblesse du Cœur' });
+  assert.match(insc.numero, /^NDC-\d{4}-0001$/);
+  const copiePart = (axe, ok = true, plus = {}) => ({ action: 'examen_noter', axe, ...part, ids: axe === 1 ? ids1 : ids2, reponses: ok ? juste(axe === 1 ? ids1 : ids2) : {}, ...plus });
+  assert.strictEqual(post({ action: 'certificat', ...part }).certificat, 'aucun');
+  assert.strictEqual(post(copiePart(1, true, { numero: 'NDC-2099-9999' })).certificat, 'non');
+  assert.strictEqual(post(copiePart(2)).certificat, 'ouvert');
+  const c = post({ action: 'certificat', ...part });
+  assert.strictEqual(c.certificat, 'ouvert'); assert.strictEqual(c.nom, 'Koffi'); assert.strictEqual(c.prenom, 'Awa'); assert.strictEqual(c.numero, insc.numero);
+  assert.strictEqual(post({ action: 'certificat', ...part, nom: 'Autre' }).certificat, 'aucun');
+  assert.strictEqual(post(copiePart(1, true, { ville: '' })).ok, false, 'la ville est obligatoire');
+  assert.strictEqual(post({ action: 'certificat', ...eleve }).certificat, 'aucun', "un participant n'est jamais confondu avec un élève");
+  const l = classeur.feuilles['Examen final'].rows, col = n => l[0].indexOf(n);
+  assert.strictEqual(l[1][col('profil')], 'participant'); assert.strictEqual(l[1][col('classe')], 'Bingerville'); assert.strictEqual(l[1][col('etablissement')], '');
+});
+
+test("le tableau de bord range les examens d'un participant avec son inscription, sous le type « Participant »", () => {
+  const { ctx } = monde();
+  const D = { inscription: [{ nom: 'Koffi', prenom: 'Awa', ville: 'Bingerville', numero: 'NDC-2026-0001', formation: 'x' }],
+              examens: [{ etablissement: '', nom: 'Koffi', prenom: 'Awa', classe: 'Bingerville', profil: 'participant', axe: 1, note: 9, total: 10 }, { etablissement: '', nom: 'Koffi', prenom: 'Awa', classe: 'Bingerville', profil: 'participant', axe: 2, note: 9, total: 10 }] };
+  const o = JSON.parse(JSON.stringify(ctx.calculer(D)));
+  assert.strictEqual(o.personnes.length, 1); assert.strictEqual(o.personnes[0].type, 'Participant'); assert.strictEqual(o.personnes[0].examPct, 90);
+});
